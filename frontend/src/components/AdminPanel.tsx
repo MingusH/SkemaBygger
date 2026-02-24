@@ -48,7 +48,7 @@ const AdminPanel: React.FC = () => {
                 <StudentForm onStudentCreated={handleStudentCreated} />
               </div>
               <div className="list-section">
-                <StudentList key={`students-${refreshKey}`} />
+                <StudentList key={`students-${refreshKey}`} refreshKey={refreshKey} />
               </div>
             </div>
           </div>
@@ -61,7 +61,7 @@ const AdminPanel: React.FC = () => {
                 <TeacherForm onTeacherCreated={handleTeacherCreated} />
               </div>
               <div className="list-section">
-                <TeacherList key={`teachers-${refreshKey}`} />
+                <TeacherList key={`teachers-${refreshKey}`} refreshKey={refreshKey} />
               </div>
             </div>
           </div>

@@ -98,6 +98,16 @@ def create_student(student: schemas.StudentCreate, db: Session = Depends(get_db)
     }
     return schemas.Student(**response_dict)
 
+@app.delete("/students/{student_id}")
+def delete_student(student_id: int, db: Session = Depends(get_db)):
+    student = db.query(models.Student).filter(models.Student.id == student_id).first()
+    if student is None:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    db.delete(student)
+    db.commit()
+    return {"message": "Student deleted successfully"}
+
 @app.get("/students/{student_id}", response_model=schemas.Student)
 def get_student(student_id: int, db: Session = Depends(get_db)):
     student = db.query(models.Student).filter(models.Student.id == student_id).first()
@@ -171,6 +181,16 @@ def create_teacher(teacher: schemas.TeacherCreate, db: Session = Depends(get_db)
         'oprettet_dato': db_teacher.oprettet_dato.isoformat() if db_teacher.oprettet_dato else None
     }
     return schemas.Teacher(**response_dict)
+
+@app.delete("/teachers/{teacher_id}")
+def delete_teacher(teacher_id: int, db: Session = Depends(get_db)):
+    teacher = db.query(models.Teacher).filter(models.Teacher.id == teacher_id).first()
+    if teacher is None:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    
+    db.delete(teacher)
+    db.commit()
+    return {"message": "Teacher deleted successfully"}
 
 @app.get("/teachers/{teacher_id}", response_model=schemas.Teacher)
 def get_teacher(teacher_id: int, db: Session = Depends(get_db)):

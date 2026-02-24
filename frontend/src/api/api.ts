@@ -47,6 +47,10 @@ export const studentApi = {
     const response = await api.post('/students/', student);
     return response.data;
   },
+  
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/students/${id}`);
+  }
 };
 
 // Teacher API
@@ -89,6 +93,10 @@ export const teacherApi = {
     const response = await api.post('/teachers/', teacher);
     return response.data;
   },
+  
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/teachers/${id}`);
+  }
 };
 
 // Classroom API
