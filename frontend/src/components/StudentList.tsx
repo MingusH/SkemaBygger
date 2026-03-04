@@ -11,15 +11,19 @@ const StudentList: React.FC<StudentListProps> = ({ refreshKey }) => {
   const [error, setError] = useState('');
 
   const fetchStudents = async () => {
+    console.log('fetchStudents called');
     setLoading(true);
     setError('');
     try {
+      console.log('Calling studentApi.getAll()');
       const data = await studentApi.getAll();
+      console.log('Got data:', data);
       setStudents(data);
     } catch (err: any) {
-      setError('Fejl ved hentning af elever');
       console.error('Error fetching students:', err);
+      setError('Fejl ved hentning af elever');
     } finally {
+      console.log('Setting loading to false');
       setLoading(false);
     }
   };

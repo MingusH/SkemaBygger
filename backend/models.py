@@ -1,9 +1,17 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Text
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Text, Table
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
 Base = declarative_base()
+
+# Association table for many-to-many relationship between teachers and subjects
+teacher_subjects = Table(
+    'teacher_subjects',
+    Base.metadata,
+    Column('teacher_id', Integer, ForeignKey('teachers.id'), primary_key=True),
+    Column('subject_id', Integer, ForeignKey('subjects.id'), primary_key=True)
+)
 
 class Student(Base):
     __tablename__ = "students"
@@ -18,7 +26,7 @@ class Student(Base):
     aktiv = Column(Boolean, default=True)
     oprettet_dato = Column(DateTime, default=datetime.utcnow)
     
-    klasse = relationship("Classroom", back_populates="elever")
+    klasse = relationship("Classroom", back_populates="students")
 
 class Teacher(Base):
     __tablename__ = "teachers"
@@ -34,24 +42,23 @@ class Teacher(Base):
     aktiv = Column(Boolean, default=True)
     oprettet_dato = Column(DateTime, default=datetime.utcnow)
     
-    klasser = relationship("Classroom", back_populates="laerer")
-    fag = relationship("Subject", back_populates="laerer")
+    classrooms = relationship("Classroom", back_populates="class_teacher")
+    subjects = relationship("Subject", secondary=teacher_subjects, back_populates="teachers")
 
 class Classroom(Base):
     __tablename__ = "classrooms"
     
     id = Column(Integer, primary_key=True, index=True)
-    navn = Column(String, unique=True, index=True)  # f.eks. "3.A", "5.B"
-    aargang = Column(String)  # f.eks. "3. klasse", "5. klasse"
-    skoleaar = Column(String)  # f.eks. "2023/2024"
-    laerer_id = Column(Integer, ForeignKey("teachers.id"))
-    kapacitet = Column(Integer, default=30)
-    lokale = Column(String, nullable=True)
-    aktiv = Column(Boolean, default=True)
-    oprettet_dato = Column(DateTime, default=datetime.utcnow)
+    name = Column(String, unique=True, index=True)  # f.eks. "3.A", "5.B"
+    start_year = Column(Integer)  # f.eks. 2020 (år de startede i skole)
+    class_teacher_id = Column(Integer, ForeignKey("teachers.id"), nullable=True)
+    room = Column(String, nullable=True)  # f.eks. "Rum 101"
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
     
-    laerer = relationship("Teacher", back_populates="klasser")
-    elever = relationship("Student", back_populates="klasse")
+    # Relationships
+    class_teacher = relationship("Teacher", back_populates="classrooms")
+    students = relationship("Student", back_populates="klasse")
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -59,8 +66,7 @@ class Subject(Base):
     id = Column(Integer, primary_key=True, index=True)
     navn = Column(String, unique=True, index=True)  # f.eks. "Matematik", "Dansk"
     kort_navn = Column(String)  # f.eks. "Mat", "Da"
-    laerer_id = Column(Integer, ForeignKey("teachers.id"))
     farve = Column(String, default="#007bff")  # Til UI farvekodning
     aktiv = Column(Boolean, default=True)
     
-    laerer = relationship("Teacher", back_populates="fag")
+    teachers = relationship("Teacher", secondary=teacher_subjects, back_populates="subjects")

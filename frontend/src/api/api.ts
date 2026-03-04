@@ -7,7 +7,32 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000, // 10 sekunder timeout
 });
+
+// Add response interceptor for debugging
+api.interceptors.response.use(
+  response => {
+    console.log('API Response:', response.config.url, response.status);
+    return response;
+  },
+  error => {
+    console.error('API Error:', error.config?.url, error.message);
+    return Promise.reject(error);
+  }
+);
+
+// Add request interceptor for debugging
+api.interceptors.request.use(
+  config => {
+    console.log('API Request:', config.method?.toUpperCase(), config.url);
+    return config;
+  },
+  error => {
+    console.error('API Request Error:', error);
+    return Promise.reject(error);
+  }
+);
 
 // Student API
 export interface Student {
@@ -102,14 +127,20 @@ export const teacherApi = {
 // Classroom API
 export interface Classroom {
   id: number;
-  navn: string;
-  aargang: string;
-  skoleaar: string;
-  laerer_id: number;
-  kapacitet: number;
-  lokale?: string;
-  aktiv: boolean;
-  oprettet_dato: string;
+  name: string;
+  start_year: number;
+  class_teacher_id?: number;
+  room?: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface ClassroomCreate {
+  name: string;
+  start_year: number;
+  class_teacher_id?: number;
+  classroom?: string;
+  active: boolean;
 }
 
 export const classroomApi = {
@@ -117,4 +148,47 @@ export const classroomApi = {
     const response = await api.get('/classrooms/');
     return response.data;
   },
+  
+  create: async (classroom: ClassroomCreate): Promise<Classroom> => {
+    const response = await api.post('/classrooms/', classroom);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/classrooms/${id}`);
+  }
+};
+
+// Subject API
+export interface Subject {
+  id: number;
+  navn: string;
+  kort_navn: string;
+  farve: string;
+  aktiv: boolean;
+  teacher_ids: number[];
+}
+
+export interface SubjectCreate {
+  navn: string;
+  kort_navn: string;
+  farve: string;
+  aktiv: boolean;
+  teacher_ids: number[];
+}
+
+export const subjectApi = {
+  getAll: async (): Promise<Subject[]> => {
+    const response = await api.get('/subjects/');
+    return response.data;
+  },
+  
+  create: async (subject: SubjectCreate): Promise<Subject> => {
+    const response = await api.post('/subjects/', subject);
+    return response.data;
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/subjects/${id}`);
+  }
 };

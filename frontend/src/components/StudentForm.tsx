@@ -1,23 +1,41 @@
-import React, { useState } from 'react';
-import { StudentCreate, studentApi } from '../api/api';
+import React, { useState, useEffect } from 'react';
+import { StudentCreate, Classroom, studentApi, classroomApi } from '../api/api';
 
 interface StudentFormProps {
   onStudentCreated: () => void;
 }
 
 const StudentForm: React.FC<StudentFormProps> = ({ onStudentCreated }) => {
+  const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [formData, setFormData] = useState<StudentCreate>({
     fornavn: '',
     efternavn: '',
     email: '',
     foedselsdato: '', // Date input giver YYYY-MM-DD string
     elevnummer: '',
-    klasse_id: 1,
+    klasse_id: 0, // Vil blive opdateret når classrooms er hentet
     aktiv: true,
   });
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const fetchClassrooms = async () => {
+    try {
+      const data = await classroomApi.getAll();
+      setClassrooms(data);
+      // Sæt første klasse som default hvis ingen er valgt
+      if (data.length > 0 && formData.klasse_id === 0) {
+        setFormData(prev => ({ ...prev, klasse_id: data[0].id }));
+      }
+    } catch (err: any) {
+      console.error('Error fetching classrooms:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchClassrooms();
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -137,9 +155,11 @@ const StudentForm: React.FC<StudentFormProps> = ({ onStudentCreated }) => {
               value={formData.klasse_id}
               onChange={handleChange}
             >
-              <option value={1}>3.A</option>
-              <option value={2}>3.B</option>
-              <option value={3}>5.A</option>
+              {classrooms.map(classroom => (
+                <option key={classroom.id} value={classroom.id}>
+                  {classroom.name}
+                </option>
+              ))}
             </select>
           </div>
         </div>

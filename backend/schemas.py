@@ -1,5 +1,5 @@
 from pydantic import BaseModel, field_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class StudentBase(BaseModel):
@@ -46,20 +46,18 @@ class Teacher(TeacherBase):
         from_attributes = True
 
 class ClassroomBase(BaseModel):
-    navn: str
-    aargang: str
-    skoleaar: str
-    laerer_id: int
-    kapacitet: int = 30
-    lokale: Optional[str] = None
-    aktiv: bool = True
+    name: str
+    start_year: int
+    class_teacher_id: Optional[int] = None
+    room: Optional[str] = None
+    active: bool = True
 
 class ClassroomCreate(ClassroomBase):
     pass
 
 class Classroom(ClassroomBase):
     id: int
-    oprettet_dato: datetime
+    created_at: str  # Returner som string
     
     class Config:
         from_attributes = True
@@ -67,15 +65,15 @@ class Classroom(ClassroomBase):
 class SubjectBase(BaseModel):
     navn: str
     kort_navn: str
-    laerer_id: int
     farve: str = "#007bff"
     aktiv: bool = True
 
 class SubjectCreate(SubjectBase):
-    pass
+    teacher_ids: List[int] = []  # List of teacher IDs for many-to-many
 
 class Subject(SubjectBase):
     id: int
+    teacher_ids: List[int] = []  # List of teacher IDs
     
     class Config:
         from_attributes = True

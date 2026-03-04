@@ -4,8 +4,9 @@ import TeacherForm from './TeacherForm';
 import StudentList from './StudentList';
 import TeacherList from './TeacherList';
 import ClassroomGrid from './ClassroomGrid';
+import SubjectGrid from './SubjectGrid';
 
-type TabType = 'students' | 'teachers' | 'classrooms';
+type TabType = 'students' | 'teachers' | 'classrooms' | 'subjects';
 
 const AdminPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('students');
@@ -20,6 +21,10 @@ const AdminPanel: React.FC = () => {
   };
 
   const handleClassroomCreated = () => {
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const handleSubjectCreated = () => {
     setRefreshKey(prev => prev + 1);
   };
 
@@ -48,6 +53,12 @@ const AdminPanel: React.FC = () => {
           onClick={() => setActiveTab('classrooms')}
         >
           Klasser
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'subjects' ? 'active' : ''}`}
+          onClick={() => setActiveTab('subjects')}
+        >
+          Fag
         </button>
       </div>
 
@@ -81,6 +92,12 @@ const AdminPanel: React.FC = () => {
         {activeTab === 'classrooms' && (
           <div className="tab-pane">
             <ClassroomGrid key={`classrooms-${refreshKey}`} onClassroomCreated={handleClassroomCreated} />
+          </div>
+        )}
+
+        {activeTab === 'subjects' && (
+          <div className="tab-pane">
+            <SubjectGrid key={`subjects-${refreshKey}`} onSubjectCreated={handleSubjectCreated} />
           </div>
         )}
       </div>

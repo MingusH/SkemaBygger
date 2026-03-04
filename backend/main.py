@@ -10,9 +10,6 @@ import schemas
 import database
 from database import engine, SessionLocal
 
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="SkemaBygger API", description="API til folkeskole skemalægning")
 
 # Exception handler for validation errors
@@ -213,11 +210,80 @@ def get_teacher(teacher_id: int, db: Session = Depends(get_db)):
     }
     return schemas.Teacher(**response_dict)
 
-# Classrooms endpoints
+# Subjects endpoints
+@app.get("/subjects/", response_model=List[schemas.Subject])
+def get_subjects(db: Session = Depends(get_db)):
+    subjects = db.query(models.Subject).all()
+    result = []
+    for subject in subjects:
+        # Get teacher IDs for this subject
+        teacher_ids = [teacher.id for teacher in subject.teachers]
+        subject_dict = {
+            'id': subject.id,
+            'navn': subject.navn,
+            'kort_navn': subject.kort_navn,
+            'farve': subject.farve,
+            'aktiv': subject.aktiv,
+            'teacher_ids': teacher_ids
+        }
+        result.append(schemas.Subject(**subject_dict))
+    return result
+
+@app.post("/subjects/", response_model=schemas.Subject)
+def create_subject(subject: schemas.SubjectCreate, db: Session = Depends(get_db)):
+    # Create subject without teacher_ids first
+    subject_data = subject.model_dump(exclude={'teacher_ids'})
+    db_subject = models.Subject(**subject_data)
+    db.add(db_subject)
+    db.commit()
+    db.refresh(db_subject)
+    
+    # Add teachers to subject
+    if subject.teacher_ids:
+        teachers = db.query(models.Teacher).filter(models.Teacher.id.in_(subject.teacher_ids)).all()
+        db_subject.teachers = teachers
+        db.commit()
+        db.refresh(db_subject)
+    
+    # Return with teacher_ids
+    teacher_ids = [teacher.id for teacher in db_subject.teachers]
+    response_dict = {
+        'id': db_subject.id,
+        'navn': db_subject.navn,
+        'kort_navn': db_subject.kort_navn,
+        'farve': db_subject.farve,
+        'aktiv': db_subject.aktiv,
+        'teacher_ids': teacher_ids
+    }
+    return schemas.Subject(**response_dict)
+
+@app.delete("/subjects/{subject_id}")
+def delete_subject(subject_id: int, db: Session = Depends(get_db)):
+    subject = db.query(models.Subject).filter(models.Subject.id == subject_id).first()
+    if subject is None:
+        raise HTTPException(status_code=404, detail="Subject not found")
+    
+    db.delete(subject)
+    db.commit()
+    return {"message": "Subject deleted successfully"}
+
+# Classroom endpoints
 @app.get("/classrooms/", response_model=List[schemas.Classroom])
 def get_classrooms(db: Session = Depends(get_db)):
     classrooms = db.query(models.Classroom).all()
-    return classrooms
+    result = []
+    for classroom in classrooms:
+        classroom_dict = {
+            'id': classroom.id,
+            'name': classroom.name,
+            'start_year': classroom.start_year,
+            'class_teacher_id': classroom.class_teacher_id,
+            'room': classroom.room,
+            'active': classroom.active,
+            'created_at': classroom.created_at.isoformat() if classroom.created_at else None
+        }
+        result.append(schemas.Classroom(**classroom_dict))
+    return result
 
 @app.post("/classrooms/", response_model=schemas.Classroom)
 def create_classroom(classroom: schemas.ClassroomCreate, db: Session = Depends(get_db)):
@@ -225,28 +291,28 @@ def create_classroom(classroom: schemas.ClassroomCreate, db: Session = Depends(g
     db.add(db_classroom)
     db.commit()
     db.refresh(db_classroom)
-    return db_classroom
+    
+    # Konverter tilbage til string for response
+    response_dict = {
+        'id': db_classroom.id,
+        'name': db_classroom.name,
+        'start_year': db_classroom.start_year,
+        'class_teacher_id': db_classroom.class_teacher_id,
+        'room': db_classroom.room,
+        'active': db_classroom.active,
+        'created_at': db_classroom.created_at.isoformat() if db_classroom.created_at else None
+    }
+    return schemas.Classroom(**response_dict)
 
-@app.get("/classrooms/{classroom_id}", response_model=schemas.Classroom)
-def get_classroom(classroom_id: int, db: Session = Depends(get_db)):
+@app.delete("/classrooms/{classroom_id}")
+def delete_classroom(classroom_id: int, db: Session = Depends(get_db)):
     classroom = db.query(models.Classroom).filter(models.Classroom.id == classroom_id).first()
     if classroom is None:
         raise HTTPException(status_code=404, detail="Classroom not found")
-    return classroom
-
-# Subjects endpoints
-@app.get("/subjects/", response_model=List[schemas.Subject])
-def get_subjects(db: Session = Depends(get_db)):
-    subjects = db.query(models.Subject).all()
-    return subjects
-
-@app.post("/subjects/", response_model=schemas.Subject)
-def create_subject(subject: schemas.SubjectCreate, db: Session = Depends(get_db)):
-    db_subject = models.Subject(**subject.model_dump())
-    db.add(db_subject)
+    
+    db.delete(classroom)
     db.commit()
-    db.refresh(db_subject)
-    return db_subject
+    return {"message": "Classroom deleted successfully"}
 
 if __name__ == "__main__":
     import uvicorn

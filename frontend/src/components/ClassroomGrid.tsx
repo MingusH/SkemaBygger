@@ -1,15 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-interface Classroom {
-  id: number;
-  navn: string;
-  aargang: string;
-  skoleaar: string;
-  laerer_id: number;
-  kapacitet: number;
-  lokale?: string;
-  aktiv: boolean;
-}
+import { Classroom, Teacher, classroomApi, teacherApi } from '../api/api';
 
 interface ClassroomGridProps {
   onClassroomCreated: () => void;
@@ -17,30 +7,38 @@ interface ClassroomGridProps {
 
 const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => {
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    start_year: new Date().getFullYear(),
+    class_teacher_id: 0,
+    room: '',
+    active: true
+  });
 
   const fetchClassrooms = async () => {
     setLoading(true);
     setError('');
     try {
-      // TODO: Implementer API kald
-      // const data = await classroomApi.getAll();
-      // setClassrooms(data);
-      
-      // Midlertidig mock data
-      setClassrooms([
-        { id: 1, navn: '3.A', aargang: '3. klasse', skoleaar: '2023/2024', laerer_id: 1, kapacitet: 28, lokale: 'Rum 101', aktiv: true },
-        { id: 2, navn: '3.B', aargang: '3. klasse', skoleaar: '2023/2024', laerer_id: 2, kapacitet: 26, lokale: 'Rum 102', aktiv: true },
-        { id: 3, navn: '5.A', aargang: '5. klasse', skoleaar: '2023/2024', laerer_id: 1, kapacitet: 30, lokale: 'Rum 201', aktiv: true },
-        { id: 4, navn: '6.A', aargang: '6. klasse', skoleaar: '2023/2024', laerer_id: 3, kapacitet: 25, lokale: 'Rum 301', aktiv: true },
-      ]);
+      const data = await classroomApi.getAll();
+      setClassrooms(data);
     } catch (err: any) {
       setError('Fejl ved hentning af klasser');
       console.error('Error fetching classrooms:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTeachers = async () => {
+    try {
+      const data = await teacherApi.getAll();
+      setTeachers(data);
+    } catch (err: any) {
+      console.error('Error fetching teachers:', err);
     }
   };
 
@@ -50,8 +48,7 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
     }
     
     try {
-      // TODO: Implementer API kald
-      // await classroomApi.delete(id);
+      await classroomApi.delete(id);
       setClassrooms(classrooms.filter(classroom => classroom.id !== id));
     } catch (err: any) {
       setError('Fejl ved sletning af klasse');
@@ -59,9 +56,47 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      await classroomApi.create(formData);
+      setFormData({
+        name: '',
+        start_year: new Date().getFullYear(),
+        class_teacher_id: 0,
+        room: '',
+        active: true
+      });
+      setShowForm(false);
+      fetchClassrooms();
+      onClassroomCreated();
+    } catch (err: any) {
+      setError('Fejl ved oprettelse af klasse');
+      console.error('Error creating classroom:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchClassrooms();
+    fetchTeachers();
   }, []);
+
+  const calculateCurrentGrade = (startYear: number) => {
+    const currentYear = new Date().getFullYear();
+    const yearsInSchool = currentYear - startYear;
+    return `${yearsInSchool}. klasse`;
+  };
+
+  const getTeacherName = (teacherId: number | undefined) => {
+    if (!teacherId) return 'Ikke tildelt';
+    const teacher = teachers.find(t => t.id === teacherId);
+    return teacher ? `${teacher.fornavn} ${teacher.efternavn}` : 'Ukendt lærer';
+  };
 
   if (loading) return <div className="loading">Henter klasser...</div>;
   if (error) return <div className="error">{error}</div>;
@@ -81,30 +116,48 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
       {showForm && (
         <div className="classroom-form">
           <h3>Opret ny klasse</h3>
-          <form>
+          <form onSubmit={handleSubmit}>
             <div className="form-row">
-              <input type="text" placeholder="Klassenavn (f.eks. 3.A)" />
-              <input type="text" placeholder="Årgang (f.eks. 3. klasse)" />
+              <input 
+                type="text" 
+                placeholder="Klassenavn (f.eks. 3.A)" 
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                required
+              />
+              <input 
+                type="number" 
+                placeholder="Startår (f.eks. 2020)" 
+                value={formData.start_year}
+                onChange={(e) => setFormData({...formData, start_year: parseInt(e.target.value)})}
+                required
+              />
             </div>
             <div className="form-row">
-              <input type="text" placeholder="Skoleår (f.eks. 2023/2024)" />
-              <input type="number" placeholder="Kapacitet" />
-            </div>
-            <div className="form-row">
-              <input type="text" placeholder="Lokale (f.eks. Rum 101)" />
-              <select>
-                <option value="">Vælg lærer</option>
-                <option value="1">Jens Hansen</option>
-                <option value="2">Mette Nielsen</option>
-                <option value="3">Søren Petersen</option>
+              <input 
+                type="text" 
+                placeholder="Klasselokale (f.eks. Rum 101)" 
+                value={formData.room}
+                onChange={(e) => setFormData({...formData, room: e.target.value})}
+              />
+              <select 
+                value={formData.class_teacher_id}
+                onChange={(e) => setFormData({...formData, class_teacher_id: parseInt(e.target.value)})}
+              >
+                <option value="0">Ingen klasselærer</option>
+                {teachers.map(teacher => (
+                  <option key={teacher.id} value={teacher.id}>
+                    {teacher.fornavn} {teacher.efternavn}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="form-actions">
               <button type="button" className="cancel-btn" onClick={() => setShowForm(false)}>
                 Annuller
               </button>
-              <button type="submit" className="submit-btn">
-                Opret klasse
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'Opretter...' : 'Opret klasse'}
               </button>
             </div>
           </form>
@@ -113,9 +166,9 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
 
       <div className="classroom-grid">
         {classrooms.map((classroom) => (
-          <div key={classroom.id} className={`classroom-card ${!classroom.aktiv ? 'inactive' : ''}`}>
+          <div key={classroom.id} className={`classroom-card ${!classroom.active ? 'inactive' : ''}`}>
             <div className="classroom-header-info">
-              <h3>{classroom.navn}</h3>
+              <h3>{classroom.name}</h3>
               <button 
                 className="delete-classroom-btn"
                 onClick={() => handleDelete(classroom.id)}
@@ -125,11 +178,11 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
               </button>
             </div>
             <div className="classroom-details">
-              <p><strong>Årgang:</strong> {classroom.aargang}</p>
-              <p><strong>Skoleår:</strong> {classroom.skoleaar}</p>
-              <p><strong>Kapacitet:</strong> {classroom.kapacitet} elever</p>
-              {classroom.lokale && <p><strong>Lokale:</strong> {classroom.lokale}</p>}
-              <p><strong>Status:</strong> {classroom.aktiv ? 'Aktiv' : 'Inaktiv'}</p>
+              <p><strong>Klasse:</strong> {calculateCurrentGrade(classroom.start_year)}</p>
+              <p><strong>Startår:</strong> {classroom.start_year}</p>
+              <p><strong>Klasselærer:</strong> {getTeacherName(classroom.class_teacher_id)}</p>
+              {classroom.room && <p><strong>Lokale:</strong> {classroom.room}</p>}
+              <p><strong>Status:</strong> {classroom.active ? 'Aktiv' : 'Inaktiv'}</p>
             </div>
           </div>
         ))}
