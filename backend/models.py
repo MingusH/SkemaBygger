@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Text, Table
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Text, Table, Time
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -12,6 +12,26 @@ teacher_subjects = Table(
     Column('teacher_id', Integer, ForeignKey('teachers.id'), primary_key=True),
     Column('subject_id', Integer, ForeignKey('subjects.id'), primary_key=True)
 )
+
+# Association table for many-to-many relationship between classrooms and subjects
+class_subjects = Table(
+    'class_subjects',
+    Base.metadata,
+    Column('class_id', Integer, ForeignKey('classrooms.id'), primary_key=True),
+    Column('subject_id', Integer, ForeignKey('subjects.id'), primary_key=True)
+)
+
+class TimeSlot(Base):
+    __tablename__ = "timeslots"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    start_time = Column(Time, nullable=False)      # "08:00"
+    end_time = Column(Time, nullable=False)        # "08:45"
+    day_of_week = Column(Integer, nullable=False)  # 0-6 (Mandag-Søndag)
+    slot_number = Column(Integer, nullable=False)  # 1, 2, 3...
+    is_break = Column(Boolean, default=False)      # True for pauser
+    break_type = Column(String, nullable=True)     # "frokost", "lille_pause"
+    active = Column(Boolean, default=True)
 
 class Student(Base):
     __tablename__ = "students"
@@ -59,6 +79,7 @@ class Classroom(Base):
     # Relationships
     class_teacher = relationship("Teacher", back_populates="classrooms")
     students = relationship("Student", back_populates="klasse")
+    subjects = relationship("Subject", secondary=class_subjects, back_populates="classrooms")
 
 class Subject(Base):
     __tablename__ = "subjects"
@@ -70,3 +91,4 @@ class Subject(Base):
     aktiv = Column(Boolean, default=True)
     
     teachers = relationship("Teacher", secondary=teacher_subjects, back_populates="subjects")
+    classrooms = relationship("Classroom", secondary=class_subjects, back_populates="subjects")

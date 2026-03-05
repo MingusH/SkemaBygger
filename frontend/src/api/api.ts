@@ -132,6 +132,7 @@ export interface Classroom {
   class_teacher_id?: number;
   room?: string;
   active: boolean;
+  subject_ids: number[];  // List of subject IDs for many-to-many
   created_at: string;
 }
 
@@ -139,8 +140,9 @@ export interface ClassroomCreate {
   name: string;
   start_year: number;
   class_teacher_id?: number;
-  classroom?: string;
+  room?: string;
   active: boolean;
+  subject_ids: number[];  // List of subject IDs for many-to-many
 }
 
 export const classroomApi = {
@@ -167,6 +169,7 @@ export interface Subject {
   farve: string;
   aktiv: boolean;
   teacher_ids: number[];
+  class_ids: number[];  // List of classroom IDs for many-to-many
 }
 
 export interface SubjectCreate {
@@ -190,5 +193,43 @@ export const subjectApi = {
   
   delete: async (id: number): Promise<void> => {
     await api.delete(`/subjects/${id}`);
+  }
+};
+
+// TimeSlot interfaces
+export interface TimeSlot {
+  id: number;
+  start_time: string;  // "08:00"
+  end_time: string;    // "08:45"
+  day_of_week: number; // 0-6 (Mandag-Søndag)
+  slot_number: number; // 1, 2, 3...
+  is_break: boolean;
+  break_type: string | null;  // "frokost", "lille_pause"
+  active: boolean;
+}
+
+export interface TimeSlotCreate {
+  start_time: string;  // "08:00"
+  end_time: string;    // "08:45"
+  day_of_week: number; // 0-6 (Mandag-Søndag)
+  slot_number: number; // 1, 2, 3...
+  is_break: boolean;
+  break_type: string | null;
+  active: boolean;
+}
+
+export const timeslotApi = {
+  getAll: async (): Promise<TimeSlot[]> => {
+    const response = await api.get('/timeslots/');
+    return response.data;
+  },
+  
+  create: async (data: TimeSlotCreate): Promise<TimeSlot> => {
+    const response = await api.post('/timeslots/', data);
+    return response.data;
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/timeslots/${id}`);
   }
 };

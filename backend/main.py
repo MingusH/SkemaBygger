@@ -17,9 +17,11 @@ app = FastAPI(title="SkemaBygger API", description="API til folkeskole skemalæg
 async def validation_exception_handler(request, exc):
     print(f"Validation error: {exc}")
     print(f"Error details: {exc.errors()}")
+    
+    # Simple error response uden time objects
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors(), "body": exc.body},
+        content={"detail": "Validation error - check your input data"},
     )
 
 # CORS middleware
@@ -216,23 +218,24 @@ def get_subjects(db: Session = Depends(get_db)):
     subjects = db.query(models.Subject).all()
     result = []
     for subject in subjects:
-        # Get teacher IDs for this subject
         teacher_ids = [teacher.id for teacher in subject.teachers]
+        class_ids = [classroom.id for classroom in subject.classrooms]
         subject_dict = {
             'id': subject.id,
             'navn': subject.navn,
             'kort_navn': subject.kort_navn,
             'farve': subject.farve,
             'aktiv': subject.aktiv,
-            'teacher_ids': teacher_ids
+            'teacher_ids': teacher_ids,
+            'class_ids': class_ids
         }
         result.append(schemas.Subject(**subject_dict))
     return result
 
 @app.post("/subjects/", response_model=schemas.Subject)
 def create_subject(subject: schemas.SubjectCreate, db: Session = Depends(get_db)):
-    # Create subject without teacher_ids first
-    subject_data = subject.model_dump(exclude={'teacher_ids'})
+    # Create subject without teacher_ids and class_ids first
+    subject_data = subject.model_dump(exclude={'teacher_ids', 'class_ids'})
     db_subject = models.Subject(**subject_data)
     db.add(db_subject)
     db.commit()
@@ -242,18 +245,27 @@ def create_subject(subject: schemas.SubjectCreate, db: Session = Depends(get_db)
     if subject.teacher_ids:
         teachers = db.query(models.Teacher).filter(models.Teacher.id.in_(subject.teacher_ids)).all()
         db_subject.teachers = teachers
+    
+    # Add classrooms to subject
+    if subject.class_ids:
+        classrooms = db.query(models.Classroom).filter(models.Classroom.id.in_(subject.class_ids)).all()
+        db_subject.classrooms = classrooms
+    
+    if subject.teacher_ids or subject.class_ids:
         db.commit()
         db.refresh(db_subject)
     
-    # Return with teacher_ids
+    # Return with teacher_ids and class_ids
     teacher_ids = [teacher.id for teacher in db_subject.teachers]
+    class_ids = [classroom.id for classroom in db_subject.classrooms]
     response_dict = {
         'id': db_subject.id,
         'navn': db_subject.navn,
         'kort_navn': db_subject.kort_navn,
         'farve': db_subject.farve,
         'aktiv': db_subject.aktiv,
-        'teacher_ids': teacher_ids
+        'teacher_ids': teacher_ids,
+        'class_ids': class_ids
     }
     return schemas.Subject(**response_dict)
 
@@ -267,12 +279,71 @@ def delete_subject(subject_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Subject deleted successfully"}
 
+# TimeSlot endpoints
+@app.get("/timeslots/", response_model=List[schemas.TimeSlot])
+def get_timeslots(db: Session = Depends(get_db)):
+    timeslots = db.query(models.TimeSlot).filter(models.TimeSlot.active == True).order_by(
+        models.TimeSlot.day_of_week, models.TimeSlot.slot_number
+    ).all()
+    
+    # Konverter time objects til strings for response
+    result = []
+    for timeslot in timeslots:
+        timeslot_dict = {
+            'id': timeslot.id,
+            'start_time': timeslot.start_time.strftime('%H:%M'),
+            'end_time': timeslot.end_time.strftime('%H:%M'),
+            'day_of_week': timeslot.day_of_week,
+            'slot_number': timeslot.slot_number,
+            'is_break': timeslot.is_break,
+            'break_type': timeslot.break_type,
+            'active': timeslot.active
+        }
+        result.append(schemas.TimeSlot(**timeslot_dict))
+    return result
+
+@app.post("/timeslots/", response_model=schemas.TimeSlot)
+def create_timeslot(timeslot: schemas.TimeSlotCreate, db: Session = Depends(get_db)):
+    # Konverter strings til time objects for SQLAlchemy
+    timeslot_data = timeslot.model_dump()
+    timeslot_data['start_time'] = datetime.strptime(timeslot.start_time, '%H:%M').time()
+    timeslot_data['end_time'] = datetime.strptime(timeslot.end_time, '%H:%M').time()
+    
+    db_timeslot = models.TimeSlot(**timeslot_data)
+    db.add(db_timeslot)
+    db.commit()
+    db.refresh(db_timeslot)
+    
+    # Konverter time objects til strings for response
+    response_dict = {
+        'id': db_timeslot.id,
+        'start_time': db_timeslot.start_time.strftime('%H:%M'),
+        'end_time': db_timeslot.end_time.strftime('%H:%M'),
+        'day_of_week': db_timeslot.day_of_week,
+        'slot_number': db_timeslot.slot_number,
+        'is_break': db_timeslot.is_break,
+        'break_type': db_timeslot.break_type,
+        'active': db_timeslot.active
+    }
+    return schemas.TimeSlot(**response_dict)
+
+@app.delete("/timeslots/{timeslot_id}")
+def delete_timeslot(timeslot_id: int, db: Session = Depends(get_db)):
+    timeslot = db.query(models.TimeSlot).filter(models.TimeSlot.id == timeslot_id).first()
+    if timeslot is None:
+        raise HTTPException(status_code=404, detail="TimeSlot not found")
+    
+    db.delete(timeslot)
+    db.commit()
+    return {"message": "TimeSlot deleted successfully"}
+
 # Classroom endpoints
 @app.get("/classrooms/", response_model=List[schemas.Classroom])
 def get_classrooms(db: Session = Depends(get_db)):
     classrooms = db.query(models.Classroom).all()
     result = []
     for classroom in classrooms:
+        subject_ids = [subject.id for subject in classroom.subjects]
         classroom_dict = {
             'id': classroom.id,
             'name': classroom.name,
@@ -280,6 +351,7 @@ def get_classrooms(db: Session = Depends(get_db)):
             'class_teacher_id': classroom.class_teacher_id,
             'room': classroom.room,
             'active': classroom.active,
+            'subject_ids': subject_ids,
             'created_at': classroom.created_at.isoformat() if classroom.created_at else None
         }
         result.append(schemas.Classroom(**classroom_dict))
@@ -287,10 +359,21 @@ def get_classrooms(db: Session = Depends(get_db)):
 
 @app.post("/classrooms/", response_model=schemas.Classroom)
 def create_classroom(classroom: schemas.ClassroomCreate, db: Session = Depends(get_db)):
-    db_classroom = models.Classroom(**classroom.model_dump())
+    # Fjern subject_ids fra classroom data (mange-til-mange håndteres separat)
+    classroom_data = classroom.model_dump()
+    subject_ids = classroom_data.pop('subject_ids', [])
+    
+    db_classroom = models.Classroom(**classroom_data)
     db.add(db_classroom)
     db.commit()
     db.refresh(db_classroom)
+    
+    # Tilføj subjects til classroom
+    if subject_ids:
+        subjects = db.query(models.Subject).filter(models.Subject.id.in_(subject_ids)).all()
+        db_classroom.subjects.extend(subjects)
+        db.commit()
+        db.refresh(db_classroom)
     
     # Konverter tilbage til string for response
     response_dict = {
@@ -300,6 +383,7 @@ def create_classroom(classroom: schemas.ClassroomCreate, db: Session = Depends(g
         'class_teacher_id': db_classroom.class_teacher_id,
         'room': db_classroom.room,
         'active': db_classroom.active,
+        'subject_ids': subject_ids,
         'created_at': db_classroom.created_at.isoformat() if db_classroom.created_at else None
     }
     return schemas.Classroom(**response_dict)

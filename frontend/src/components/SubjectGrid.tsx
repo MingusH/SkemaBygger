@@ -150,6 +150,7 @@ const SubjectGrid: React.FC<SubjectGridProps> = ({ onSubjectCreated }) => {
                 ))}
               </div>
             </div>
+            
             <input 
               type="color" 
               placeholder="Farve" 
@@ -167,7 +168,7 @@ const SubjectGrid: React.FC<SubjectGridProps> = ({ onSubjectCreated }) => {
           </div>
         </form>
       )}
-
+      
       <div className="subject-grid">
         {subjects.map(subject => (
           <div key={subject.id} className="subject-card" style={{borderLeftColor: subject.farve}}>

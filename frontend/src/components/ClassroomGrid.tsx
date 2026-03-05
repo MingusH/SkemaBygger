@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Classroom, Teacher, classroomApi, teacherApi } from '../api/api';
+import { Classroom, Teacher, Subject, classroomApi, teacherApi, subjectApi } from '../api/api';
 
 interface ClassroomGridProps {
   onClassroomCreated: () => void;
@@ -8,6 +8,7 @@ interface ClassroomGridProps {
 const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => {
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -16,7 +17,8 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
     start_year: new Date().getFullYear(),
     class_teacher_id: 0,
     room: '',
-    active: true
+    active: true,
+    subject_ids: [] as number[]
   });
 
   const fetchClassrooms = async () => {
@@ -39,6 +41,15 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
       setTeachers(data);
     } catch (err: any) {
       console.error('Error fetching teachers:', err);
+    }
+  };
+
+  const fetchSubjects = async () => {
+    try {
+      const data = await subjectApi.getAll();
+      setSubjects(data);
+    } catch (err: any) {
+      console.error('Error fetching subjects:', err);
     }
   };
 
@@ -68,7 +79,8 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
         start_year: new Date().getFullYear(),
         class_teacher_id: 0,
         room: '',
-        active: true
+        active: true,
+        subject_ids: []
       });
       setShowForm(false);
       fetchClassrooms();
@@ -84,6 +96,7 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
   useEffect(() => {
     fetchClassrooms();
     fetchTeachers();
+    fetchSubjects();
   }, []);
 
   const calculateCurrentGrade = (startYear: number) => {
@@ -152,6 +165,29 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
                 ))}
               </select>
             </div>
+            
+            <div className="form-group">
+              <label>Fag:</label>
+              <div className="checkbox-group">
+                {subjects.map(subject => (
+                  <label key={subject.id} className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={formData.subject_ids.includes(subject.id)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        if (checked) {
+                          setFormData({...formData, subject_ids: [...formData.subject_ids, subject.id]});
+                        } else {
+                          setFormData({...formData, subject_ids: formData.subject_ids.filter(id => id !== subject.id)});
+                        }
+                      }}
+                    />
+                    <span>{subject.navn} ({subject.kort_navn})</span>
+                  </label>
+                ))}
+              </div>
+            </div>
             <div className="form-actions">
               <button type="button" className="cancel-btn" onClick={() => setShowForm(false)}>
                 Annuller
@@ -183,6 +219,21 @@ const ClassroomGrid: React.FC<ClassroomGridProps> = ({ onClassroomCreated }) => 
               <p><strong>Klasselærer:</strong> {getTeacherName(classroom.class_teacher_id)}</p>
               {classroom.room && <p><strong>Lokale:</strong> {classroom.room}</p>}
               <p><strong>Status:</strong> {classroom.active ? 'Aktiv' : 'Inaktiv'}</p>
+              {classroom.subject_ids && classroom.subject_ids.length > 0 && (
+                <div className="classroom-subjects">
+                  <p><strong>Fag:</strong></p>
+                  <div className="subject-tags">
+                    {classroom.subject_ids.map(subjectId => {
+                      const subject = subjects.find(s => s.id === subjectId);
+                      return subject ? (
+                        <span key={subjectId} className="subject-tag" style={{ backgroundColor: subject.farve }}>
+                          {subject.kort_navn}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         ))}
