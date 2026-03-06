@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Text, Table, Time
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Boolean, Text, Table, Time, Date
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -89,6 +89,37 @@ class Subject(Base):
     kort_navn = Column(String)  # f.eks. "Mat", "Da"
     farve = Column(String, default="#007bff")  # Til UI farvekodning
     aktiv = Column(Boolean, default=True)
+    room_id = Column(Integer, ForeignKey("rooms.id"), nullable=True)  # Required room for this subject
+    created_at = Column(DateTime, default=datetime.utcnow)  # Tilføj created_at
     
     teachers = relationship("Teacher", secondary=teacher_subjects, back_populates="subjects")
     classrooms = relationship("Classroom", secondary=class_subjects, back_populates="subjects")
+    room = relationship("Room", backref="subjects")
+
+class Room(Base):
+    __tablename__ = "rooms"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)  # f.eks. "Kemilab", "Fysikrum", "Musiklokale"
+    room_type = Column(String, index=True)  # 'homeroom' eller 'special'
+    capacity = Column(Integer)  # Antal elever der kan være i lokalet
+    equipment = Column(Text, nullable=True)  # f.eks. "Laboratorieudstyr, projektor"
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class RoomAssignment(Base):
+    __tablename__ = "room_assignments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(Integer, ForeignKey("rooms.id"))
+    subject_id = Column(Integer, ForeignKey("subjects.id"))
+    classroom_id = Column(Integer, ForeignKey("classrooms.id"))
+    timeslot_id = Column(Integer, ForeignKey("timeslots.id"))
+    date = Column(Date)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    room = relationship("Room")
+    subject = relationship("Subject")
+    classroom = relationship("Classroom")
+    timeslot = relationship("TimeSlot")

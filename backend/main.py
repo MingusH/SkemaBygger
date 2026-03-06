@@ -219,7 +219,6 @@ def get_subjects(db: Session = Depends(get_db)):
     result = []
     for subject in subjects:
         teacher_ids = [teacher.id for teacher in subject.teachers]
-        class_ids = [classroom.id for classroom in subject.classrooms]
         subject_dict = {
             'id': subject.id,
             'navn': subject.navn,
@@ -227,15 +226,17 @@ def get_subjects(db: Session = Depends(get_db)):
             'farve': subject.farve,
             'aktiv': subject.aktiv,
             'teacher_ids': teacher_ids,
-            'class_ids': class_ids
+            'room_id': subject.room_id,
+            'created_at': subject.created_at,
+            'room': subject.room
         }
         result.append(schemas.Subject(**subject_dict))
     return result
 
 @app.post("/subjects/", response_model=schemas.Subject)
 def create_subject(subject: schemas.SubjectCreate, db: Session = Depends(get_db)):
-    # Create subject without teacher_ids and class_ids first
-    subject_data = subject.model_dump(exclude={'teacher_ids', 'class_ids'})
+    # Create subject without teacher_ids first
+    subject_data = subject.model_dump(exclude={'teacher_ids'})
     db_subject = models.Subject(**subject_data)
     db.add(db_subject)
     db.commit()
@@ -244,28 +245,21 @@ def create_subject(subject: schemas.SubjectCreate, db: Session = Depends(get_db)
     # Add teachers to subject
     if subject.teacher_ids:
         teachers = db.query(models.Teacher).filter(models.Teacher.id.in_(subject.teacher_ids)).all()
-        db_subject.teachers = teachers
-    
-    # Add classrooms to subject
-    if subject.class_ids:
-        classrooms = db.query(models.Classroom).filter(models.Classroom.id.in_(subject.class_ids)).all()
-        db_subject.classrooms = classrooms
-    
-    if subject.teacher_ids or subject.class_ids:
+        db_subject.teachers.extend(teachers)
         db.commit()
         db.refresh(db_subject)
     
-    # Return with teacher_ids and class_ids
-    teacher_ids = [teacher.id for teacher in db_subject.teachers]
-    class_ids = [classroom.id for classroom in db_subject.classrooms]
+    # Prepare response with room info
     response_dict = {
         'id': db_subject.id,
         'navn': db_subject.navn,
         'kort_navn': db_subject.kort_navn,
         'farve': db_subject.farve,
         'aktiv': db_subject.aktiv,
-        'teacher_ids': teacher_ids,
-        'class_ids': class_ids
+        'teacher_ids': subject.teacher_ids,
+        'room_id': db_subject.room_id,
+        'created_at': db_subject.created_at,
+        'room': db_subject.room
     }
     return schemas.Subject(**response_dict)
 
@@ -398,6 +392,66 @@ def delete_classroom(classroom_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Classroom deleted successfully"}
 
+# Room endpoints
+@app.get("/rooms/", response_model=List[schemas.Room])
+def get_rooms(db: Session = Depends(get_db)):
+    rooms = db.query(models.Room).all()
+    return rooms
+
+@app.post("/rooms/", response_model=schemas.Room)
+def create_room(room: schemas.RoomCreate, db: Session = Depends(get_db)):
+    db_room = models.Room(**room.model_dump())
+    db.add(db_room)
+    db.commit()
+    db.refresh(db_room)
+    return db_room
+
+@app.delete("/rooms/{room_id}")
+def delete_room(room_id: int, db: Session = Depends(get_db)):
+    room = db.query(models.Room).filter(models.Room.id == room_id).first()
+    if room is None:
+        raise HTTPException(status_code=404, detail="Room not found")
+    
+    db.delete(room)
+    db.commit()
+    return {"message": "Room deleted successfully"}
+
+# Room Assignment endpoints
+@app.get("/room-assignments/", response_model=List[schemas.RoomAssignment])
+def get_room_assignments(db: Session = Depends(get_db)):
+    assignments = db.query(models.RoomAssignment).all()
+    return assignments
+
+@app.post("/room-assignments/", response_model=schemas.RoomAssignment)
+def create_room_assignment(assignment: schemas.RoomAssignmentCreate, db: Session = Depends(get_db)):
+    db_assignment = models.RoomAssignment(**assignment.model_dump())
+    db.add(db_assignment)
+    db.commit()
+    db.refresh(db_assignment)
+    return db_assignment
+
+@app.get("/rooms/available/{date}/{timeslot_id}")
+def get_available_rooms(date: str, timeslot_id: int, db: Session = Depends(get_db)):
+    # Find rooms that are not booked at the given date and timeslot
+    booked_room_ids = db.query(models.RoomAssignment.room_id).filter(
+        models.RoomAssignment.date == date,
+        models.RoomAssignment.timeslot_id == timeslot_id
+    ).all()
+    
+    booked_ids = [room_id[0] for room_id in booked_room_ids]
+    
+    available_rooms = db.query(models.Room).filter(
+        models.Room.id.notin_(booked_ids),
+        models.Room.active == True
+    ).all()
+    
+    return available_rooms
+
+@app.get("/")
+def read_root():
+    return {"message": "SkemaBygger API is running!"}
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("Starting server...")
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=False, log_level="info")

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Subject, Teacher, subjectApi, teacherApi } from '../api/api';
+import { Subject, Teacher, Room, subjectApi, teacherApi, roomApi } from '../api/api';
 
 interface SubjectGridProps {
   onSubjectCreated: () => void;
@@ -8,6 +8,7 @@ interface SubjectGridProps {
 const SubjectGrid: React.FC<SubjectGridProps> = ({ onSubjectCreated }) => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -15,6 +16,7 @@ const SubjectGrid: React.FC<SubjectGridProps> = ({ onSubjectCreated }) => {
     navn: '',
     kort_navn: '',
     teacher_ids: [] as number[],
+    room_id: undefined as number | undefined,
     farve: '#007bff',
     aktiv: true
   });
@@ -39,6 +41,15 @@ const SubjectGrid: React.FC<SubjectGridProps> = ({ onSubjectCreated }) => {
       setTeachers(data);
     } catch (err: any) {
       console.error('Error fetching teachers:', err);
+    }
+  };
+
+  const fetchRooms = async () => {
+    try {
+      const data = await roomApi.getAll();
+      setRooms(data);
+    } catch (err: any) {
+      console.error('Error fetching rooms:', err);
     }
   };
 
@@ -67,6 +78,7 @@ const SubjectGrid: React.FC<SubjectGridProps> = ({ onSubjectCreated }) => {
         navn: '',
         kort_navn: '',
         teacher_ids: [],
+        room_id: undefined,
         farve: '#007bff',
         aktiv: true
       });
@@ -84,6 +96,7 @@ const SubjectGrid: React.FC<SubjectGridProps> = ({ onSubjectCreated }) => {
   useEffect(() => {
     fetchSubjects();
     fetchTeachers();
+    fetchRooms();
   }, []);
 
   const getTeacherNames = (teacherIds: number[]) => {
@@ -151,6 +164,21 @@ const SubjectGrid: React.FC<SubjectGridProps> = ({ onSubjectCreated }) => {
               </div>
             </div>
             
+            <div className="form-group">
+              <label>Påkrævet lokale:</label>
+              <select 
+                value={formData.room_id || ''}
+                onChange={(e) => setFormData({...formData, room_id: e.target.value ? parseInt(e.target.value) : undefined})}
+              >
+                <option value="">Homeroom (standard)</option>
+                {rooms.map(room => (
+                  <option key={room.id} value={room.id}>
+                    {room.name} ({room.capacity} elever)
+                  </option>
+                ))}
+              </select>
+            </div>
+            
             <input 
               type="color" 
               placeholder="Farve" 
@@ -185,6 +213,7 @@ const SubjectGrid: React.FC<SubjectGridProps> = ({ onSubjectCreated }) => {
             <div className="subject-details">
               <p><strong>Kort navn:</strong> {subject.kort_navn}</p>
               <p><strong>Lærer(e):</strong> {getTeacherNames(subject.teacher_ids)}</p>
+              <p><strong>Lokale:</strong> {subject.room ? subject.room.name : 'Homeroom'}</p>
               <p><strong>Status:</strong> {subject.aktiv ? 'Aktiv' : 'Inaktiv'}</p>
             </div>
           </div>

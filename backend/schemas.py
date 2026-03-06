@@ -1,6 +1,6 @@
 from pydantic import BaseModel, field_validator
 from typing import Optional, List
-from datetime import datetime, time
+from datetime import datetime, time, date
 
 class StudentBase(BaseModel):
     fornavn: str
@@ -66,17 +66,18 @@ class Classroom(ClassroomBase):
 class SubjectBase(BaseModel):
     navn: str
     kort_navn: str
-    farve: str = "#007bff"
-    aktiv: bool = True
+    farve: str
+    aktiv: bool
+    teacher_ids: List[int] = []  # List of teacher IDs
+    room_id: Optional[int] = None  # Required room for this subject
 
 class SubjectCreate(SubjectBase):
-    teacher_ids: List[int] = []  # List of teacher IDs for many-to-many
-    class_ids: List[int] = []   # List of classroom IDs for many-to-many
+    pass
 
 class Subject(SubjectBase):
     id: int
-    teacher_ids: List[int] = []  # List of teacher IDs
-    class_ids: List[int] = []   # List of classroom IDs
+    created_at: datetime
+    room: Optional['Room'] = None  # Forward reference
     
     class Config:
         from_attributes = True
@@ -98,6 +99,46 @@ class TimeSlot(TimeSlotBase):
     id: int
     start_time: str  # Returner som string til frontend
     end_time: str    # Returner som string til frontend
+    
+    class Config:
+        from_attributes = True
+
+# Room Schemas
+class RoomBase(BaseModel):
+    name: str
+    room_type: str  # 'homeroom' eller 'special'
+    capacity: int
+    equipment: Optional[str] = None
+    active: bool = True
+
+class RoomCreate(RoomBase):
+    pass
+
+class Room(RoomBase):
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Room Assignment Schemas
+class RoomAssignmentBase(BaseModel):
+    room_id: int
+    subject_id: int
+    classroom_id: int
+    timeslot_id: int
+    date: date
+
+class RoomAssignmentCreate(RoomAssignmentBase):
+    pass
+
+class RoomAssignment(RoomAssignmentBase):
+    id: int
+    created_at: datetime
+    room: Room
+    subject: Subject
+    classroom: Classroom
+    timeslot: TimeSlot
     
     class Config:
         from_attributes = True

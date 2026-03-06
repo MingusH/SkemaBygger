@@ -6,9 +6,12 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./skema.db")
+# Brug absolut path til database
+current_dir = os.path.dirname(os.path.abspath(__file__))
+db_path = os.path.join(current_dir, "skema.db")
+DATABASE_URL = f"sqlite:///{db_path}"
 
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

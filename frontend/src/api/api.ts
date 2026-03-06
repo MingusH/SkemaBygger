@@ -169,7 +169,9 @@ export interface Subject {
   farve: string;
   aktiv: boolean;
   teacher_ids: number[];
-  class_ids: number[];  // List of classroom IDs for many-to-many
+  room_id?: number;
+  created_at: string;
+  room?: Room;
 }
 
 export interface SubjectCreate {
@@ -178,6 +180,7 @@ export interface SubjectCreate {
   farve: string;
   aktiv: boolean;
   teacher_ids: number[];
+  room_id?: number;
 }
 
 export const subjectApi = {
@@ -193,6 +196,80 @@ export const subjectApi = {
   
   delete: async (id: number): Promise<void> => {
     await api.delete(`/subjects/${id}`);
+  }
+};
+
+// Room API
+export interface Room {
+  id: number;
+  name: string;
+  room_type: string;
+  capacity: number;
+  equipment?: string;
+  active: boolean;
+  created_at: string;
+}
+
+export interface RoomCreate {
+  name: string;
+  room_type: string;
+  capacity: number;
+  equipment?: string;
+  active: boolean;
+}
+
+export interface RoomAssignment {
+  id: number;
+  room_id: number;
+  subject_id: number;
+  classroom_id: number;
+  timeslot_id: number;
+  date: string;
+  created_at: string;
+  room: Room;
+  subject: Subject;
+  classroom: Classroom;
+  timeslot: TimeSlot;
+}
+
+export interface RoomAssignmentCreate {
+  room_id: number;
+  subject_id: number;
+  classroom_id: number;
+  timeslot_id: number;
+  date: string;
+}
+
+export const roomApi = {
+  getAll: async (): Promise<Room[]> => {
+    const response = await api.get('/rooms/');
+    return response.data;
+  },
+  
+  create: async (room: RoomCreate): Promise<Room> => {
+    const response = await api.post('/rooms/', room);
+    return response.data;
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/rooms/${id}`);
+  },
+  
+  getAvailable: async (date: string, timeslotId: number): Promise<Room[]> => {
+    const response = await api.get(`/rooms/available/${date}/${timeslotId}`);
+    return response.data;
+  }
+};
+
+export const roomAssignmentApi = {
+  getAll: async (): Promise<RoomAssignment[]> => {
+    const response = await api.get('/room-assignments/');
+    return response.data;
+  },
+  
+  create: async (assignment: RoomAssignmentCreate): Promise<RoomAssignment> => {
+    const response = await api.post('/room-assignments/', assignment);
+    return response.data;
   }
 };
 
