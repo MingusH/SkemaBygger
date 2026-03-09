@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Teacher, teacherApi } from '../api/api';
+import TeacherAvailabilityModal from './TeacherAvailabilityModal';
 
 interface TeacherListProps {
   refreshKey: number;
@@ -9,6 +10,7 @@ const TeacherList: React.FC<TeacherListProps> = ({ refreshKey }) => {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
 
   const fetchTeachers = async () => {
     setLoading(true);
@@ -87,6 +89,13 @@ const TeacherList: React.FC<TeacherListProps> = ({ refreshKey }) => {
                 >
                   🗑️
                 </button>
+                <button 
+                  onClick={() => setSelectedTeacher(teacher)}
+                  className="availability-button"
+                  title="Administrer tilgængelighed"
+                >
+                  📅
+                </button>
               </td>
             </tr>
           ))}
@@ -95,6 +104,13 @@ const TeacherList: React.FC<TeacherListProps> = ({ refreshKey }) => {
       
       {teachers.length === 0 && (
         <div className="no-data">Ingen lærere fundet</div>
+      )}
+      
+      {selectedTeacher && (
+        <TeacherAvailabilityModal 
+          teacher={selectedTeacher} 
+          onClose={() => setSelectedTeacher(null)} 
+        />
       )}
     </div>
   );

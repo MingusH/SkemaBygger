@@ -273,7 +273,54 @@ export const roomAssignmentApi = {
   }
 };
 
-// TimeSlot interfaces
+// Teacher Availability interfaces
+export interface TeacherAvailability {
+  id: number;
+  teacher_id: number;
+  timeslot_id: number;
+  date?: string;
+  day_of_week?: number;
+  available: boolean;
+  reason?: string;
+  created_at: string;
+  teacher: Teacher;
+  timeslot: TimeSlot;
+}
+
+export interface TeacherAvailabilityCreate {
+  teacher_id: number;
+  timeslot_id: number;
+  date?: string;
+  day_of_week?: number;
+  available: boolean;
+  reason?: string;
+}
+
+export const teacherAvailabilityApi = {
+  getByTeacher: async (teacherId: number): Promise<TeacherAvailability[]> => {
+    const response = await api.get(`/teachers/availability/${teacherId}`);
+    return response.data;
+  },
+  
+  create: async (availability: TeacherAvailabilityCreate): Promise<TeacherAvailability> => {
+    const response = await api.post('/teachers/availability/', availability);
+    return response.data;
+  },
+  
+  update: async (availabilityId: number, availability: TeacherAvailabilityCreate): Promise<TeacherAvailability> => {
+    const response = await api.put(`/teachers/availability/${availabilityId}`, availability);
+    return response.data;
+  },
+  
+  delete: async (availabilityId: number): Promise<void> => {
+    await api.delete(`/teachers/availability/${availabilityId}`);
+  },
+  
+  checkAvailability: async (teacherId: number, date: string, timeslotId: number): Promise<{available: boolean, reason?: string}> => {
+    const response = await api.get(`/teachers/available/${teacherId}/${date}/${timeslotId}`);
+    return response.data;
+  }
+};
 export interface TimeSlot {
   id: number;
   start_time: string;  // "08:00"

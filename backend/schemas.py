@@ -1,4 +1,4 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 from typing import Optional, List
 from datetime import datetime, time, date
 
@@ -37,13 +37,23 @@ class TeacherCreate(TeacherBase):
     pass
 
 class Teacher(TeacherBase):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     oprettet_dato: str  # Returner som string
     
-    # Fjern field_validator - vi modtager kun strings her
+    @field_validator('oprettet_dato', mode='before')
+    @classmethod
+    def convert_datetime_to_str(cls, v):
+        if isinstance(v, datetime):
+            return v.isoformat()
+        return v
     
-    class Config:
-        from_attributes = True
+    @field_validator('ansat_dato', mode='before')
+    @classmethod
+    def convert_date_to_str(cls, v):
+        if isinstance(v, (date, datetime)):
+            return v.isoformat()
+        return v
 
 class ClassroomBase(BaseModel):
     name: str
@@ -96,12 +106,43 @@ class TimeSlotCreate(TimeSlotBase):
     pass
 
 class TimeSlot(TimeSlotBase):
+    model_config = ConfigDict(from_attributes=True)
     id: int
     start_time: str  # Returner som string til frontend
     end_time: str    # Returner som string til frontend
     
-    class Config:
-        from_attributes = True
+    @field_validator('start_time', 'end_time', mode='before')
+    @classmethod
+    def convert_time_to_str(cls, v):
+        if isinstance(v, time):
+            return v.isoformat()
+        return v
+
+# Teacher Availability schemas
+class TeacherAvailabilityBase(BaseModel):
+    teacher_id: int
+    timeslot_id: Optional[int] = None  # Gør optional
+    date: Optional[date] = None
+    day_of_week: Optional[int] = None
+    available: bool = True
+    reason: Optional[str] = None
+
+class TeacherAvailabilityCreate(TeacherAvailabilityBase):
+    pass
+
+class TeacherAvailability(TeacherAvailabilityBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    created_at: str  # Returner som string
+    teacher: Teacher
+    timeslot: Optional[TimeSlot]  # Gør optional hvis timeslot kan være None
+    
+    @field_validator('created_at', mode='before')
+    @classmethod
+    def convert_datetime_to_str(cls, v):
+        if isinstance(v, datetime):
+            return v.isoformat()
+        return v
 
 # Room Schemas
 class RoomBase(BaseModel):

@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload, Session
 from typing import List
 from datetime import datetime
 import models
@@ -392,7 +392,91 @@ def delete_classroom(classroom_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Classroom deleted successfully"}
 
-# Room endpoints
+# Teacher Availability endpoints
+@app.get("/teachers/availability/{teacher_id}", response_model=List[schemas.TeacherAvailability])
+def get_teacher_availability(teacher_id: int, db: Session = Depends(get_db)):
+    availability = db.query(models.TeacherAvailability).filter(
+        models.TeacherAvailability.teacher_id == teacher_id
+    ).options(
+        joinedload(models.TeacherAvailability.teacher),
+        joinedload(models.TeacherAvailability.timeslot)
+    ).all()
+    return availability
+
+@app.post("/teachers/availability/", response_model=schemas.TeacherAvailability)
+def create_teacher_availability(availability: schemas.TeacherAvailabilityCreate, db: Session = Depends(get_db)):
+    db_availability = models.TeacherAvailability(**availability.model_dump())
+    db.add(db_availability)
+    db.commit()
+    db.refresh(db_availability)
+    return db_availability
+
+@app.put("/teachers/availability/{availability_id}", response_model=schemas.TeacherAvailability)
+def update_teacher_availability(availability_id: int, availability: schemas.TeacherAvailabilityCreate, db: Session = Depends(get_db)):
+    db_availability = db.query(models.TeacherAvailability).filter(
+        models.TeacherAvailability.id == availability_id
+    ).first()
+    if db_availability is None:
+        raise HTTPException(status_code=404, detail="Teacher availability not found")
+    
+    for key, value in availability.model_dump().items():
+        setattr(db_availability, key, value)
+    
+    db.commit()
+    db.refresh(db_availability)
+    return db_availability
+
+@app.delete("/teachers/availability/{availability_id}")
+def delete_teacher_availability(availability_id: int, db: Session = Depends(get_db)):
+    availability = db.query(models.TeacherAvailability).filter(
+        models.TeacherAvailability.id == availability_id
+    ).first()
+    if availability is None:
+        raise HTTPException(status_code=404, detail="Teacher availability not found")
+    
+    db.delete(availability)
+    db.commit()
+    return {"message": "Teacher availability deleted successfully"}
+
+@app.get("/teachers/available/{teacher_id}/{date}/{timeslot_id}")
+def check_teacher_availability(teacher_id: int, date: str, timeslot_id: int, db: Session = Depends(get_db)):
+    from datetime import datetime
+    
+    # Convert date string to date object
+    try:
+        date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    
+    # Check for unavailability records (available = false)
+    unavailability = db.query(models.TeacherAvailability).filter(
+        models.TeacherAvailability.teacher_id == teacher_id,
+        models.TeacherAvailability.available == False  # Only check unavailability
+    ).all()
+    
+    # Check specific date unavailability
+    specific_unavailable = any(
+        u for u in unavailability 
+        if u.date == date_obj and u.timeslot_id == timeslot_id
+    )
+    
+    if specific_unavailable:
+        reason = next(u.reason for u in unavailability if u.date == date_obj and u.timeslot_id == timeslot_id)
+        return {"available": False, "reason": reason}
+    
+    # Check recurring unavailability
+    day_of_week = date_obj.weekday()  # 0 = Monday
+    recurring_unavailable = any(
+        u for u in unavailability 
+        if u.day_of_week == day_of_week and u.timeslot_id == timeslot_id and u.date is None
+    )
+    
+    if recurring_unavailable:
+        reason = next(u.reason for u in unavailability if u.day_of_week == day_of_week and u.timeslot_id == timeslot_id and u.date is None)
+        return {"available": False, "reason": reason}
+    
+    # Default to available if no unavailability found
+    return {"available": True, "reason": None}
 @app.get("/rooms/", response_model=List[schemas.Room])
 def get_rooms(db: Session = Depends(get_db)):
     rooms = db.query(models.Room).all()

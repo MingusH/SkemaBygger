@@ -123,3 +123,19 @@ class RoomAssignment(Base):
     subject = relationship("Subject")
     classroom = relationship("Classroom")
     timeslot = relationship("TimeSlot")
+
+class TeacherAvailability(Base):
+    __tablename__ = "teacher_availability"
+ 
+    id = Column(Integer, primary_key=True, index=True)
+    teacher_id = Column(Integer, ForeignKey("teachers.id"))
+    timeslot_id = Column(Integer, ForeignKey("timeslots.id"))
+    date = Column(Date, nullable=True)  # For specific dates
+    day_of_week = Column(Integer, nullable=True)  # 0-6 for recurring (Mandag-Søndag)
+    available = Column(Boolean, default=True)
+    reason = Column(String, nullable=True)  # f.eks. "Syg", "Ferie", "Kursus"
+    created_at = Column(DateTime, default=datetime.utcnow)
+ 
+    # Relationships
+    teacher = relationship("Teacher", backref="availability")
+    timeslot = relationship("TimeSlot", backref="teacher_availability")
