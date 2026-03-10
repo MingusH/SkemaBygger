@@ -124,6 +124,29 @@ class RoomAssignment(Base):
     classroom = relationship("Classroom")
     timeslot = relationship("TimeSlot")
 
+# Association table for many-to-many relationship between teachers and special days
+teacher_special_days = Table(
+    'teacher_special_days',
+    Base.metadata,
+    Column('teacher_id', Integer, ForeignKey('teachers.id'), primary_key=True),
+    Column('special_day_id', Integer, ForeignKey('special_days.id'), primary_key=True)
+)
+
+class SpecialDay(Base):
+    __tablename__ = "special_days"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, nullable=False)
+    name = Column(String, nullable=False)  # e.g., "Forældremøde", "Workshop", "Eksamensdag"
+    start_time = Column(Time, nullable=True)  # optional start time
+    end_time = Column(Time, nullable=True)    # optional end time
+    description = Column(Text, nullable=True)  # optional description
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    teachers = relationship("Teacher", secondary=teacher_special_days, backref="special_days")
+
 class TeacherAvailability(Base):
     __tablename__ = "teacher_availability"
  

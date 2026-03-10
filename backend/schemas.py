@@ -121,19 +121,25 @@ class TimeSlot(TimeSlotBase):
 # Teacher Availability schemas
 class TeacherAvailabilityBase(BaseModel):
     teacher_id: int
-    timeslot_id: Optional[int] = None  # Gør optional
-    date: Optional[date] = None
+    timeslot_id: Optional[int] = None
+    date: Optional[str] = None  # Brug string for dato
     day_of_week: Optional[int] = None
     available: bool = True
     reason: Optional[str] = None
 
-class TeacherAvailabilityCreate(TeacherAvailabilityBase):
-    pass
+class TeacherAvailabilityCreate(BaseModel):
+    teacher_id: int
+    timeslot_id: Optional[int] = None
+    date: Optional[str] = None  # Modtag og send som string
+    day_of_week: Optional[int] = None
+    available: bool = True
+    reason: Optional[str] = None
 
 class TeacherAvailability(TeacherAvailabilityBase):
     model_config = ConfigDict(from_attributes=True)
     id: int
     created_at: str  # Returner som string
+    date: Optional[str] = None  # Overstyr til string
     teacher: Teacher
     timeslot: Optional[TimeSlot]  # Gør optional hvis timeslot kan være None
     
@@ -141,6 +147,52 @@ class TeacherAvailability(TeacherAvailabilityBase):
     @classmethod
     def convert_datetime_to_str(cls, v):
         if isinstance(v, datetime):
+            return v.isoformat()
+        return v
+    
+    @field_validator('date', mode='before')
+    @classmethod
+    def convert_date_to_str(cls, v):
+        if isinstance(v, date):
+            return v.isoformat()
+        return v
+
+# Special Day schemas
+class SpecialDayBase(BaseModel):
+    date: str  # Modtag som string fra frontend
+    name: str
+    start_time: Optional[str] = None  # Modtag som string
+    end_time: Optional[str] = None    # Modtag som string
+    description: Optional[str] = None
+    active: bool = True
+
+class SpecialDayCreate(SpecialDayBase):
+    pass
+
+class SpecialDay(SpecialDayBase):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    created_at: str  # Returner som string
+    teachers: List[Teacher] = []  # Many-to-many relationship
+    
+    @field_validator('created_at', mode='before')
+    @classmethod
+    def convert_datetime_to_str(cls, v):
+        if isinstance(v, datetime):
+            return v.isoformat()
+        return v
+    
+    @field_validator('date', mode='before')
+    @classmethod
+    def convert_date_to_str(cls, v):
+        if isinstance(v, date):
+            return v.isoformat()
+        return v
+    
+    @field_validator('start_time', 'end_time', mode='before')
+    @classmethod
+    def convert_time_to_str(cls, v):
+        if isinstance(v, time):
             return v.isoformat()
         return v
 

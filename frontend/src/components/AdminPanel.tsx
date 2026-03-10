@@ -7,8 +7,9 @@ import ClassroomGrid from './ClassroomGrid';
 import SubjectGrid from './SubjectGrid';
 import TimeSlotGrid from './TimeSlotGrid';
 import RoomGrid from './RoomGrid';
+import SpecialDaysTab from './SpecialDaysTab';
 
-type TabType = 'students' | 'teachers' | 'classrooms' | 'subjects' | 'rooms' | 'timeslots';
+type TabType = 'students' | 'teachers' | 'classrooms' | 'subjects' | 'rooms' | 'timeslots' | 'specialdays';
 
 const AdminPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('students');
@@ -78,6 +79,12 @@ const AdminPanel: React.FC = () => {
         >
           Tidsintervaller
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'specialdays' ? 'active' : ''}`}
+          onClick={() => setActiveTab('specialdays')}
+        >
+          Specielle Dage
+        </button>
       </div>
 
       <div className="tab-content">
@@ -128,6 +135,12 @@ const AdminPanel: React.FC = () => {
         {activeTab === 'timeslots' && (
           <div className="tab-pane">
             <TimeSlotGrid key={`timeslots-${refreshKey}`} />
+          </div>
+        )}
+
+        {activeTab === 'specialdays' && (
+          <div className="tab-pane">
+            <SpecialDaysTab key={`specialdays-${refreshKey}`} />
           </div>
         )}
       </div>

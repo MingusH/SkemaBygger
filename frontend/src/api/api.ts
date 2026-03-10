@@ -273,6 +273,73 @@ export const roomAssignmentApi = {
   }
 };
 
+// Special Day interfaces
+export interface SpecialDay {
+  id: number;
+  date: string;
+  name: string;
+  start_time?: string;
+  end_time?: string;
+  description?: string;
+  active: boolean;
+  created_at: string;
+  teachers: Teacher[];
+}
+
+export interface SpecialDayCreate {
+  date: string;
+  name: string;
+  start_time?: string;
+  end_time?: string;
+  description?: string;
+  active?: boolean;
+}
+
+export const specialDayApi = {
+  getAll: async (): Promise<SpecialDay[]> => {
+    const response = await api.get('/special-days/');
+    return response.data;
+  },
+  
+  getById: async (id: number): Promise<SpecialDay> => {
+    const response = await api.get(`/special-days/${id}`);
+    return response.data;
+  },
+  
+  create: async (specialDay: SpecialDayCreate): Promise<SpecialDay> => {
+    const response = await api.post('/special-days/', specialDay);
+    return response.data;
+  },
+  
+  update: async (id: number, specialDay: SpecialDayCreate): Promise<SpecialDay> => {
+    const response = await api.put(`/special-days/${id}`, specialDay);
+    return response.data;
+  },
+  
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/special-days/${id}`);
+  },
+  
+  // Teacher management
+  getTeachersForDay: async (dayId: number): Promise<Teacher[]> => {
+    const response = await api.get(`/special-days/${dayId}/teachers`);
+    return response.data;
+  },
+  
+  addTeacherToDay: async (dayId: number, teacherId: number): Promise<void> => {
+    await api.post(`/special-days/${dayId}/teachers/${teacherId}`);
+  },
+  
+  removeTeacherFromDay: async (dayId: number, teacherId: number): Promise<void> => {
+    await api.delete(`/special-days/${dayId}/teachers/${teacherId}`);
+  },
+  
+  getSpecialDaysForTeacher: async (teacherId: number): Promise<SpecialDay[]> => {
+    const response = await api.get(`/teachers/${teacherId}/special-days`);
+    return response.data;
+  }
+};
+
 // Teacher Availability interfaces
 export interface TeacherAvailability {
   id: number;
@@ -289,7 +356,7 @@ export interface TeacherAvailability {
 
 export interface TeacherAvailabilityCreate {
   teacher_id: number;
-  timeslot_id: number;
+  timeslot_id?: number;
   date?: string;
   day_of_week?: number;
   available: boolean;

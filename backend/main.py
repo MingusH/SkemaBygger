@@ -405,7 +405,14 @@ def get_teacher_availability(teacher_id: int, db: Session = Depends(get_db)):
 
 @app.post("/teachers/availability/", response_model=schemas.TeacherAvailability)
 def create_teacher_availability(availability: schemas.TeacherAvailabilityCreate, db: Session = Depends(get_db)):
-    db_availability = models.TeacherAvailability(**availability.model_dump())
+    from datetime import datetime
+    
+    # Konverter date string til date objekt hvis nødvendigt
+    data = availability.model_dump()
+    if data.get('date') and isinstance(data['date'], str):
+        data['date'] = datetime.strptime(data['date'], '%Y-%m-%d').date()
+    
+    db_availability = models.TeacherAvailability(**data)
     db.add(db_availability)
     db.commit()
     db.refresh(db_availability)
@@ -438,9 +445,163 @@ def delete_teacher_availability(availability_id: int, db: Session = Depends(get_
     db.commit()
     return {"message": "Teacher availability deleted successfully"}
 
-@app.get("/teachers/available/{teacher_id}/{date}/{timeslot_id}")
-def check_teacher_availability(teacher_id: int, date: str, timeslot_id: int, db: Session = Depends(get_db)):
-    from datetime import datetime
+# Special Days endpoints
+@app.get("/special-days/", response_model=List[schemas.SpecialDay])
+def get_special_days(db: Session = Depends(get_db)):
+    special_days = db.query(models.SpecialDay).filter(
+        models.SpecialDay.active == True
+    ).options(
+        joinedload(models.SpecialDay.teachers)
+    ).all()
+    return special_days
+
+@app.post("/special-days/", response_model=schemas.SpecialDay)
+def create_special_day(special_day: schemas.SpecialDayCreate, db: Session = Depends(get_db)):
+    from datetime import datetime, time
+    
+    # Konverter string til date/time objekter
+    data = special_day.model_dump()
+    if data.get('date') and isinstance(data['date'], str):
+        data['date'] = datetime.strptime(data['date'], '%Y-%m-%d').date()
+    if data.get('start_time') and isinstance(data['start_time'], str):
+        # Håndter både "HH:MM" og "HH:MM:SS" formater
+        try:
+            data['start_time'] = datetime.strptime(data['start_time'], '%H:%M:%S').time()
+        except ValueError:
+            data['start_time'] = datetime.strptime(data['start_time'], '%H:%M').time()
+    if data.get('end_time') and isinstance(data['end_time'], str):
+        # Håndter både "HH:MM" og "HH:MM:SS" formater
+        try:
+            data['end_time'] = datetime.strptime(data['end_time'], '%H:%M:%S').time()
+        except ValueError:
+            data['end_time'] = datetime.strptime(data['end_time'], '%H:%M').time()
+    
+    db_special_day = models.SpecialDay(**data)
+    db.add(db_special_day)
+    db.commit()
+    db.refresh(db_special_day)
+    return db_special_day
+
+@app.get("/special-days/{day_id}", response_model=schemas.SpecialDay)
+def get_special_day(day_id: int, db: Session = Depends(get_db)):
+    special_day = db.query(models.SpecialDay).filter(
+        models.SpecialDay.id == day_id
+    ).options(
+        joinedload(models.SpecialDay.teachers)
+    ).first()
+    if special_day is None:
+        raise HTTPException(status_code=404, detail="Special day not found")
+    return special_day
+
+@app.put("/special-days/{day_id}", response_model=schemas.SpecialDay)
+def update_special_day(day_id: int, special_day: schemas.SpecialDayCreate, db: Session = Depends(get_db)):
+    from datetime import datetime, time
+    
+    db_special_day = db.query(models.SpecialDay).filter(
+        models.SpecialDay.id == day_id
+    ).first()
+    if db_special_day is None:
+        raise HTTPException(status_code=404, detail="Special day not found")
+    
+    # Konverter string til date/time objekter
+    data = special_day.model_dump()
+    if data.get('date') and isinstance(data['date'], str):
+        data['date'] = datetime.strptime(data['date'], '%Y-%m-%d').date()
+    if data.get('start_time') and isinstance(data['start_time'], str):
+        # Håndter både "HH:MM" og "HH:MM:SS" formater
+        try:
+            data['start_time'] = datetime.strptime(data['start_time'], '%H:%M:%S').time()
+        except ValueError:
+            data['start_time'] = datetime.strptime(data['start_time'], '%H:%M').time()
+    if data.get('end_time') and isinstance(data['end_time'], str):
+        # Håndter både "HH:MM" og "HH:MM:SS" formater
+        try:
+            data['end_time'] = datetime.strptime(data['end_time'], '%H:%M:%S').time()
+        except ValueError:
+            data['end_time'] = datetime.strptime(data['end_time'], '%H:%M').time()
+    
+    for key, value in data.items():
+        setattr(db_special_day, key, value)
+    
+    db.commit()
+    db.refresh(db_special_day)
+    return db_special_day
+
+@app.delete("/special-days/{day_id}")
+def delete_special_day(day_id: int, db: Session = Depends(get_db)):
+    special_day = db.query(models.SpecialDay).filter(
+        models.SpecialDay.id == day_id
+    ).first()
+    if special_day is None:
+        raise HTTPException(status_code=404, detail="Special day not found")
+    
+    db.delete(special_day)
+    db.commit()
+    return {"message": "Special day deleted successfully"}
+
+# Teacher-Special Day management endpoints
+@app.get("/special-days/{day_id}/teachers", response_model=List[schemas.Teacher])
+def get_teachers_for_special_day(day_id: int, db: Session = Depends(get_db)):
+    special_day = db.query(models.SpecialDay).filter(
+        models.SpecialDay.id == day_id
+    ).first()
+    if special_day is None:
+        raise HTTPException(status_code=404, detail="Special day not found")
+    
+    return special_day.teachers
+
+@app.post("/special-days/{day_id}/teachers/{teacher_id}")
+def add_teacher_to_special_day(day_id: int, teacher_id: int, db: Session = Depends(get_db)):
+    special_day = db.query(models.SpecialDay).filter(
+        models.SpecialDay.id == day_id
+    ).first()
+    if special_day is None:
+        raise HTTPException(status_code=404, detail="Special day not found")
+    
+    teacher = db.query(models.Teacher).filter(
+        models.Teacher.id == teacher_id
+    ).first()
+    if teacher is None:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    
+    # Check if relationship already exists
+    if teacher in special_day.teachers:
+        raise HTTPException(status_code=400, detail="Teacher already added to special day")
+    
+    special_day.teachers.append(teacher)
+    db.commit()
+    return {"message": "Teacher added to special day successfully"}
+
+@app.delete("/special-days/{day_id}/teachers/{teacher_id}")
+def remove_teacher_from_special_day(day_id: int, teacher_id: int, db: Session = Depends(get_db)):
+    special_day = db.query(models.SpecialDay).filter(
+        models.SpecialDay.id == day_id
+    ).first()
+    if special_day is None:
+        raise HTTPException(status_code=404, detail="Special day not found")
+    
+    teacher = db.query(models.Teacher).filter(
+        models.Teacher.id == teacher_id
+    ).first()
+    if teacher is None:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    
+    if teacher not in special_day.teachers:
+        raise HTTPException(status_code=404, detail="Teacher not found in special day")
+    
+    special_day.teachers.remove(teacher)
+    db.commit()
+    return {"message": "Teacher removed from special day successfully"}
+
+@app.get("/teachers/{teacher_id}/special-days", response_model=List[schemas.SpecialDay])
+def get_special_days_for_teacher(teacher_id: int, db: Session = Depends(get_db)):
+    teacher = db.query(models.Teacher).filter(
+        models.Teacher.id == teacher_id
+    ).first()
+    if teacher is None:
+        raise HTTPException(status_code=404, detail="Teacher not found")
+    
+    return teacher.special_days
     
     # Convert date string to date object
     try:
