@@ -56,51 +56,63 @@ const TeacherList: React.FC<TeacherListProps> = ({ refreshKey }) => {
     <div className="list-container">
       <h3>Lærere ({teachers.length})</h3>
       
-      <table className="data-table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Navn</th>
-            <th>Email</th>
-            <th>Initialer</th>
-            <th>Telefon</th>
-            <th>Ansættelsesdato</th>
-            <th>Stilling</th>
-            <th>Aktiv</th>
-            <th>Handlinger</th>
-          </tr>
-        </thead>
-        <tbody>
-          {teachers.map((teacher) => (
-            <tr key={teacher.id}>
-              <td>{teacher.id}</td>
-              <td>{teacher.fornavn} {teacher.efternavn}</td>
-              <td>{teacher.email}</td>
-              <td>{teacher.initialer}</td>
-              <td>{teacher.telefon || '-'}</td>
-              <td>{formatDate(teacher.ansat_dato)}</td>
-              <td>{teacher.stilling}</td>
-              <td>{teacher.aktiv ? 'Ja' : 'Nej'}</td>
-              <td>
-                <button 
-                  onClick={() => handleDelete(teacher.id)}
-                  className="delete-button"
-                  title="Slet lærer"
-                >
-                  🗑️
-                </button>
-                <button 
-                  onClick={() => setSelectedTeacher(teacher)}
-                  className="availability-button"
-                  title="Administrer tilgængelighed"
-                >
-                  📅
-                </button>
-              </td>
+      <div className="table-wrapper">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th style={{width: '20px'}}>ID</th>
+              <th style={{width: '100px'}}>Navn</th>
+              <th style={{width: '100px'}}>Email</th>
+              <th style={{width: '50px'}}>Initialer</th>
+              <th style={{width: '70px'}}>Telefon</th>
+              <th style={{width: '70px'}}>Ans. dato</th>
+              <th style={{width: '60px'}}>Stilling</th>
+              <th style={{width: '40px'}}>Aktiv</th>
+              <th style={{width: '120px'}}>Handlinger</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {teachers.map((teacher) => (
+              <tr key={teacher.id}>
+                <td>{teacher.id}</td>
+                <td>
+                  <div className="teacher-name">
+                    {teacher.fornavn} {teacher.efternavn}
+                  </div>
+                </td>
+                <td>
+                  <div className="email-cell" title={teacher.email}>
+                    {teacher.email}
+                  </div>
+                </td>
+                <td>{teacher.initialer}</td>
+                <td>{teacher.telefon || '-'}</td>
+                <td>{formatDate(teacher.ansat_dato)}</td>
+                <td>{teacher.stilling}</td>
+                <td>{teacher.aktiv ? 'Ja' : 'Nej'}</td>
+                <td>
+                  <div className="action-buttons">
+                    <button 
+                      onClick={() => handleDelete(teacher.id)}
+                      className="delete-button"
+                      title="Slet lærer"
+                    >
+                      🗑️
+                    </button>
+                    <button 
+                      onClick={() => setSelectedTeacher(teacher)}
+                      className="availability-button"
+                      title="Administrer tilgængelighed"
+                    >
+                      📅
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       
       {teachers.length === 0 && (
         <div className="no-data">Ingen lærere fundet</div>

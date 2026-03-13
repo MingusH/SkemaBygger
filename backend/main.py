@@ -390,7 +390,10 @@ def delete_classroom(classroom_id: int, db: Session = Depends(get_db)):
     if classroom is None:
         raise HTTPException(status_code=404, detail="Classroom not found")
     
+    # Delete classroom subjects first
+    #db.query(models.ClassroomSubject).filter(models.ClassroomSubject.class_id == classroom_id).delete()
     db.delete(classroom)
+    
     db.commit()
     return {"message": "Classroom deleted successfully"}
 
@@ -693,6 +696,80 @@ def get_available_rooms(date: str, timeslot_id: int, db: Session = Depends(get_d
     ).all()
     
     return available_rooms
+
+@app.get("/schedule/generate/")
+def generate_schedule(db: Session = Depends(get_db)):
+    """Generate and return schedule from schedule_solver"""
+    try:
+        from schedule_solver import Schedule
+        
+        # Create and solve schedule
+        schedule = Schedule(db)
+        schedule.solve()
+        
+        # Convert lessons to JSON-serializable format
+        lessons_data = []
+        for lesson in schedule.lessons:
+            # Handle room - it could be a string (room name) or a Room object
+            room_data = None
+            if lesson.room:
+                if isinstance(lesson.room, str):
+                    # room is a string (room name from classroom.room)
+                    room_data = {"id": None, "name": lesson.room}
+                else:
+                    # room is a Room object
+                    room_data = {"id": lesson.room.id, "name": lesson.room.name}
+            
+            lesson_data = {
+                "id": getattr(lesson, 'id', None) or len(lessons_data) + 1,
+                "subject": {
+                    "id": lesson.subject.id if lesson.subject else None,
+                    "navn": lesson.subject.navn if lesson.subject else None,
+                    "farve": lesson.subject.farve if lesson.subject else "#e3f2fd"
+                } if lesson.subject else None,
+                "teacher": {
+                    "id": lesson.teacher.id if lesson.teacher else None,
+                    "fornavn": lesson.teacher.fornavn if lesson.teacher else None,
+                    "efternavn": lesson.teacher.efternavn if lesson.teacher else None
+                } if lesson.teacher else None,
+                "room": room_data,
+                "classroom": {
+                    "id": lesson.classroom.id if lesson.classroom else None,
+                    "name": lesson.classroom.name if lesson.classroom else None
+                } if lesson.classroom else None,
+                "timeslot": {
+                    "id": lesson.timeslot.id if lesson.timeslot else None,
+                    "start_time": str(lesson.timeslot.start_time) if lesson.timeslot else None,
+                    "end_time": str(lesson.timeslot.end_time) if lesson.timeslot else None,
+                    "day_of_week": lesson.timeslot.day_of_week if lesson.timeslot else None
+                } if lesson.timeslot else None
+            }
+            lessons_data.append(lesson_data)
+        
+        # Get classrooms and timeslots
+        classrooms_data = [{"id": c.id, "name": c.name} for c in schedule.classrooms]
+        timeslots_data = [
+            {
+                "id": t.id, 
+                "start_time": str(t.start_time), 
+                "end_time": str(t.end_time), 
+                "day_of_week": t.day_of_week
+            } for t in schedule.timeslots
+        ]
+        
+        return {
+            "lessons": lessons_data,
+            "classrooms": classrooms_data,
+            "timeslots": timeslots_data,
+            "total_lessons": len(lessons_data),
+            "generated_at": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        print(f"Error generating schedule: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error generating schedule: {str(e)}")
 
 @app.get("/")
 def read_root():

@@ -424,3 +424,47 @@ export const timeslotApi = {
     await api.delete(`/timeslots/${id}`);
   }
 };
+
+// Schedule API
+export interface Lesson {
+  id: number;
+  subject: {
+    id: number;
+    navn: string;
+    farve: string;
+  } | null;
+  teacher: {
+    id: number;
+    fornavn: string;
+    efternavn: string;
+  } | null;
+  room: {
+    id: number;
+    name: string;
+  } | null;
+  classroom: {
+    id: number;
+    name: string;
+  } | null;
+  timeslot: {
+    id: number;
+    start_time: string;
+    end_time: string;
+    day_of_week: number;
+  } | null;
+}
+
+export interface ScheduleData {
+  lessons: Lesson[];
+  classrooms: Classroom[];
+  timeslots: TimeSlot[];
+  total_lessons: number;
+  generated_at: string;
+}
+
+export const scheduleApi = {
+  generate: async (): Promise<ScheduleData> => {
+    const response = await api.get('/schedule/generate/');
+    return response.data;
+  }
+};

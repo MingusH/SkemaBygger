@@ -8,8 +8,9 @@ import SubjectGrid from './SubjectGrid';
 import TimeSlotGrid from './TimeSlotGrid';
 import RoomGrid from './RoomGrid';
 import SpecialDaysTab from './SpecialDaysTab';
+import ScheduleGrid from './ScheduleGrid';
 
-type TabType = 'students' | 'teachers' | 'classrooms' | 'subjects' | 'rooms' | 'timeslots' | 'specialdays';
+type TabType = 'students' | 'teachers' | 'classrooms' | 'subjects' | 'rooms' | 'timeslots' | 'specialdays' | 'schedule';
 
 const AdminPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('students');
@@ -85,6 +86,12 @@ const AdminPanel: React.FC = () => {
         >
           Specielle Dage
         </button>
+        <button
+          className={`tab-btn ${activeTab === 'schedule' ? 'active' : ''}`}
+          onClick={() => setActiveTab('schedule')}
+        >
+          Skema
+        </button>
       </div>
 
       <div className="tab-content">
@@ -141,6 +148,12 @@ const AdminPanel: React.FC = () => {
         {activeTab === 'specialdays' && (
           <div className="tab-pane">
             <SpecialDaysTab key={`specialdays-${refreshKey}`} />
+          </div>
+        )}
+
+        {activeTab === 'schedule' && (
+          <div className="tab-pane">
+            <ScheduleGrid />
           </div>
         )}
       </div>

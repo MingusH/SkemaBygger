@@ -1271,6 +1271,59 @@ section {
   background: #c82333;
 }
 
+/* Teacher row height fix */
+.data-table tbody tr {
+  min-height: 60px; /* Ensure minimum height for teacher rows */
+  vertical-align: top; /* Align content to top */
+}
+
+.data-table td {
+  padding: 8px 12px; /* Consistent padding */
+  vertical-align: top; /* Align content to top */
+  line-height: 1.4; /* Better line spacing */
+}
+
+/* Ensure table doesn't overflow */
+.list-container {
+  overflow-x: auto; /* Horizontal scroll if needed */
+  max-width: 100%; /* Don't exceed container */
+}
+
+.data-table {
+  width: 100%; /* Use full available width */
+  table-layout: fixed; /* Fixed layout for better control */
+  border-collapse: collapse; /* Proper table borders */
+}
+
+/* Teacher list specific styles */
+.table-wrapper {
+  overflow-x: auto; /* Enable horizontal scrolling */
+  max-width: 100%;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+}
+
+.teacher-name {
+  font-weight: 500;
+  color: #2c3e50;
+  word-break: break-word; /* Break long names */
+  max-width: 200px;
+}
+
+.email-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap; /* Allow buttons to wrap */
+  justify-content: center;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .availability-modal {
@@ -2021,4 +2074,157 @@ section {
 .no-subjects p:last-child {
   font-size: 14px;
   opacity: 0.8;
+}
+
+/* Schedule Grid Styles */
+.schedule-grid-container {
+  padding: 20px;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.classroom-selector {
+  margin-bottom: 20px;
+}
+
+.classroom-selector h3 {
+  margin-bottom: 10px;
+  color: #2c3e50;
+}
+
+.classroom-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+
+.classroom-tab {
+  padding: 10px 20px;
+  border: 2px solid #007bff;
+  background: white;
+  color: #007bff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.classroom-tab:hover {
+  background: #f8f9fa;
+}
+
+.classroom-tab.active {
+  background: #007bff;
+  color: white;
+}
+
+.schedule-table-wrapper {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.schedule-table-wrapper h4 {
+  margin-bottom: 15px;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.schedule-table th,
+.schedule-table td {
+  border: 1px solid #dee2e6;
+  padding: 8px;
+  text-align: center;
+}
+
+.schedule-table th {
+  background: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+}
+
+.time-header {
+  width: 100px;
+  background: #e9ecef !important;
+}
+
+.day-header {
+  width: 18%;
+}
+
+.time-cell {
+  background: #f8f9fa;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.lesson-cell {
+  min-height: 60px;
+  vertical-align: top;
+  padding: 4px;
+}
+
+.lesson-content {
+  border-radius: 4px;
+  padding: 8px 4px;
+  min-height: 50px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.lesson-subject {
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 2px;
+}
+
+.lesson-teacher {
+  font-size: 11px;
+  color: #6c757d;
+}
+
+.lesson-room {
+  font-size: 10px;
+  color: #868e96;
+  margin-top: 2px;
+}
+
+.empty-lesson {
+  color: #dee2e6;
+  font-size: 14px;
+}
+
+.schedule-legend {
+  margin-top: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.schedule-legend h4 {
+  margin-bottom: 10px;
+  color: #2c3e50;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid #dee2e6;
 }
