@@ -35,10 +35,13 @@ class Schedule:
     def get_classroom_subjects(self, classroom):
         return [self.subjects[class_subject.subject_id - 1] for class_subject in self.class_subjects if class_subject.class_id == classroom.id]
 
-    def get_days_lessons_sorted(self, timeslot, classroom):
-        lessons = [lesson for lesson in self.lessons if lesson.timeslot.day_of_week == timeslot.day_of_week and lesson.classroom == classroom]
-        lessons.sort(key=lambda x: x.timeslot.start_time)
-        return lessons
+    def get_lessons_in_day_and_classroom(self, timeslot, classroom):
+        lessons_in_day_and_classroom = []
+        for lesson in self.lessons:
+            if lesson.timeslot.day_of_week == timeslot.day_of_week:
+                if lesson.classroom == classroom:
+                    lessons_in_day_and_classroom.append(lesson)
+        return lessons_in_day_and_classroom
 
     def get_available_lessons(self, timeslot, classroom):
         # get available teachers and subjects for the given timeslot and classroom
@@ -55,27 +58,33 @@ class Schedule:
         for teacher, subjects in teacher_subjects_matches.items():
             for subject in subjects:
                 available_lessons.append(Lesson(subject, teacher, classroom.room, classroom, timeslot))
-        
+
         # remove lessons that have already been scheduled in the same day
-        earlier_lessons = self.get_days_lessons_sorted(timeslot, classroom)
+        earlier_lessons = self.get_lessons_in_day_and_classroom(timeslot, classroom)
+        earlier_lesson_names = [earlier_lesson.subject.navn for earlier_lesson in earlier_lessons]
 
+        # to remove lessons after checking constraints
+        lessons_to_remove = []
+
+        # check constraints for each lesson
         for lesson in available_lessons:
-            # get names of earlier subjects in that day 
-            earlier_lesson_names = [earlier_lesson.subject.navn for earlier_lesson in earlier_lessons]
-
-            # if the subject is not scheduled at all dont remove it
-            if sum(1 for earlier_lesson_name in earlier_lesson_names if lesson.subject.navn in earlier_lesson_name) == 0:
-                continue
+            
+            count = earlier_lesson_names.count(lesson.subject.navn)
 
             # if the subject is scheduled twice remove it from available lessons
-            if sum(1 for earlier_lesson_name in earlier_lesson_names if lesson.subject.navn in earlier_lesson_name) == 2:
-                available_lessons.remove(lesson)
-                continue
+            if  count == 2:
+                lessons_to_remove.append(lesson)
 
-            # if the subject is not scheduled right after or before the previous occurrence remove it
-            if lesson.subject.navn not in [earlier_lesson.subject.navn for earlier_lesson in earlier_lessons if earlier_lesson.timeslot.start_time == lesson.timeslot.end_time or lesson.timeslot.start_time == earlier_lesson.timeslot.end_time]:
-                available_lessons.remove(lesson)
-                
+            # if the subject is scheduled once check if the lesson is adjecent to it otherwise remove it from available lessons
+            elif count == 1:
+                  other_lesson = [earlier_lesson for earlier_lesson in earlier_lessons if earlier_lesson.subject.navn == lesson.subject.navn][0]
+                  if other_lesson.timeslot.start_time != lesson.timeslot.end_time and other_lesson.timeslot.end_time != lesson.timeslot.start_time:
+                        lessons_to_remove.append(lesson)
+
+        # remove lessons that didn't pass the constraints
+        for lesson in lessons_to_remove:
+            available_lessons.remove(lesson)
+
         return available_lessons
 
     def solve(self):
@@ -84,12 +93,12 @@ class Schedule:
             if timeslot.is_break:
                 continue
             for classroom in self.classrooms:
-                try:
-                    self.lessons.append(random.choice(self.get_available_lessons(timeslot, classroom)))
+                try:                    
+                    lesson = random.choice(self.get_available_lessons(timeslot, classroom))
+                    self.lessons.append(lesson)
                 except IndexError:
-                    #print(f"No available lessons for {timeslot} and {classroom}")
                     break
-        #print(self.lessons)
+
 
 class Lesson:
     def __init__(self, subject: object, teacher: object, room: object, classroom: object, timeslot: object):
@@ -100,7 +109,7 @@ class Lesson:
         self.timeslot = timeslot
 
     def __repr__(self):
-        return f"Lesson(subject='{self.subject.navn}', teacher='{self.teacher.fornavn}', room='{self.room}', classroom='{self.classroom.name}', timeslot={self.timeslot.start_time})"
+        return f"Lesson(subject='{self.subject.navn}', teacher='{self.teacher.fornavn}', room='{self.room}', classroom='{self.classroom.name}', timeslot={self.timeslot.start_time}, {self.timeslot.day_of_week})"
 
     def is_conflict(self, other):
         if self.timeslot == other.timeslot and self.room == other.room:
@@ -116,7 +125,6 @@ def main():
     db = SessionLocal()
     schedule = Schedule(db)
     schedule.solve()
-    #print(schedule)
 
 if __name__ == "__main__":
     main()
