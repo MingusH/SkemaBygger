@@ -53,9 +53,10 @@ class MinistryPDFParser:
         requirements = {}
 
         for row in table:
+            row[0] = row[0].replace(" (minimumstimetal)", "")
             requirements[row[0]] = {}
             for i, value in enumerate(row[1:]):
-                requirements[row[0]][i] = value
+                requirements[row[0]][i] = int(value.replace("*", "")) * 4/3 if value not in ["-", None] else 0
         return requirements
 
     def extract_year_from_url(self, url: str) -> int:
@@ -103,6 +104,7 @@ def main():
     # Try to parse the PDF
     result = parser.parse_ministry_pdf(url)
 
+    print(result)
     return result
 
 if __name__ == "__main__":
