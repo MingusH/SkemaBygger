@@ -17,9 +17,22 @@ class Schedule:
         self.class_subjects = db.query(models.class_subjects).all()
         self.teacher_subjects = db.query(models.teacher_subjects).all()
         self.teacher_special_days = db.query(models.teacher_special_days).all()
+        self.db_dict = {
+            "teachers": self.teachers,
+            "teacher_availability": self.teacher_availability,
+            "classrooms": self.classrooms,
+            "rooms": self.rooms,
+            "subjects": self.subjects,
+            "timeslots": self.timeslots,
+            "class_subjects": self.class_subjects,
+            "teacher_subjects": self.teacher_subjects,
+            "teacher_special_days": self.teacher_special_days
+        }
         self.ministry_recommendations = self.get_ministry_recommendations()
+        self.map_ministry_recommendations()
         self.current_classroom = 0
-        self.schedule_nodes = [ScheduleTreeNode(self.classrooms[self.current_classroom])]
+        self.schedule_nodes = []
+        self.schedule_nodes.append(ScheduleTreeNode(self.classrooms[self.current_classroom], self.db_dict, self.ministry_recommendations, self.schedule_nodes))
         self.is_solved = False
 
     def __repr__(self):
@@ -38,138 +51,15 @@ class Schedule:
             else:
                 subject.recommendations = self.ministry_recommendations["grade_requirements"][subject.navn]
 
-
-    def get_lessons_list(self):
-        lessons = []
-        for node in self.schedule_nodes:
-            for lesson_node in node.lessons_tree:
-                lessons.append(lesson_node.lesson)
-        return lessons
-
-    def get_lessons_for_timeslot(self, timeslot):
-        return [lesson for lesson in self.get_lessons_list() if lesson.timeslot == timeslot]
-
-
-    def get_available_teachers(self, timeslot):
-        available_teachers = [teacher for teacher in self.teachers if teacher.id not in [availability.teacher_id for availability in self.teacher_availability if availability.timeslot_id == timeslot.id]]
-        lessons = self.get_lessons_for_timeslot(timeslot)
-        for lesson in lessons:
-            if lesson.teacher in available_teachers:
-                available_teachers.remove(lesson.teacher)
-        return available_teachers
-
-
-    def get_classroom_subjects(self, classroom):
-        return [self.subjects[class_subject.subject_id - 1] for class_subject in self.class_subjects if class_subject.class_id == classroom.id]
-
-
-    def get_lessons_from_teacher_subject(self, teachers, subjects, classroom, timeslot):
-        # find matching teacher-subject pairs
-        teacher_subjects_matches = {}
-        for teacher in teachers:
-            teacher_subjects_matches[teacher] = [subject for subject in subjects if subject.id in [teacher_subject.subject_id for teacher_subject in self.teacher_subjects if teacher_subject.teacher_id == teacher.id]]
-
-        # create lessons from matching teacher-subject pairs
-        available_lessons = []
-        for teacher, subjects in teacher_subjects_matches.items():
-            for subject in subjects:
-                available_lessons.append(Lesson(subject, teacher, classroom.room, classroom, timeslot))
-        
-        return available_lessons
-
-
-    def get_lessons_in_day_and_classroom(self, timeslot, classroom):
-        lessons_in_day_and_classroom = []
-        for lesson in self.schedule_nodes:
-            if lesson.timeslot.day_of_week == timeslot.day_of_week:
-                if lesson.classroom == classroom:
-                    lessons_in_day_and_classroom.append(lesson)
-        return lessons_in_day_and_classroom
-
-
-    def placement_constraints(self, lessons: list, timeslot: object, classroom: object):
-        # remove lessons that have already been scheduled in the same day
-        earlier_lessons = self.get_lessons_in_day_and_classroom(timeslot, classroom)
-        earlier_lesson_names = [earlier_lesson.subject.navn for earlier_lesson in earlier_lessons]
-
-        # to remove lessons after checking constraints
-        lessons_to_remove = []
-
-        # check constraints for each lesson
-        for lesson in lessons:
-            
-            count = earlier_lesson_names.count(lesson.subject.navn)
-
-            # if the subject is scheduled twice remove it from available lessons
-            if  count == 2:
-                lessons_to_remove.append(lesson)
-
-            # if the subject is scheduled once check if the lesson is adjecent to it otherwise remove it from available lessons
-            elif count == 1:
-                  other_lesson = [earlier_lesson for earlier_lesson in earlier_lessons if earlier_lesson.subject.navn == lesson.subject.navn][0]
-                  if other_lesson.timeslot.start_time != lesson.timeslot.end_time and other_lesson.timeslot.end_time != lesson.timeslot.start_time:
-                        lessons_to_remove.append(lesson)
-
-        # remove lessons that didn't pass the constraints
-        for lesson in lessons_to_remove:
-            lessons.remove(lesson)
-
-        return lessons
-
-
-    def get_classroom_hours(self, classroom):
-        hours = {}
-        for row in self.class_subjects:
-            if row.class_id == classroom.id:
-                hours[self.subjects[row.subject_id - 1].navn] = 0
-
-        for lesson in self.get_lessons_list():
-            if lesson.classroom.id == classroom.id:
-                hours[lesson.subject.navn] += 1
-        return hours
-
-
-    def follow_recommendations(self, lessons, classroom):
-        # get the curren amount of hours for each subject in the classroom
-        current_hours = self.get_classroom_hours(classroom)
-
-        to_remove = []
-
-        # follow recommendations for each lesson
-        for lesson in lessons:
-            # if the subject is scheduled more than the recommendation remove it from available lessons
-            if lesson.subject.recommendations[2026 - classroom.start_year] / 40 <= current_hours[lesson.subject.navn]:
-                to_remove.append(lesson)
-
-        for lesson in to_remove:
-            lessons.remove(lesson)
-
-        return lessons
-                
-
-    def get_available_lessons(self, timeslot, classroom):
-        # get available teachers and subjects for the given timeslot and classroom
-        available_teachers = self.get_available_teachers(timeslot)
-        available_subjects = self.get_classroom_subjects(classroom)
-        
-        # find matching teacher-subject pairs
-        available_lessons = self.get_lessons_from_teacher_subject(available_teachers, available_subjects, classroom, timeslot)
-        
-        # apply placement constraints
-        available_lessons = self.placement_constraints(available_lessons, timeslot, classroom)
-
-        # apply ministry recommendations
-        available_lessons = self.follow_recommendations(available_lessons, classroom)
-
-        return available_lessons
-
-
     def is_solution(self):
-        pass
+        if len(self.schedule_nodes) == len(self.classrooms):
+            for schedule in self.schedule_nodes:
+                if not schedule.meets_ministry_standards():
+                    return False
+            return True
+        return False
 
     def solve(self):
-        self.map_ministry_recommendations()
-
         while not self.is_solved:
             self.schedule_nodes[-1].generate_solution()
             if self.schedule_nodes[-1].has_no_solution:
@@ -180,8 +70,10 @@ class Schedule:
             else:
                 # move to next node
                 self.current_classroom += 1
-                self.schedule_nodes.append(ScheduleTreeNode(self.classrooms[self.current_classroom]))
+                self.schedule_nodes.append(ScheduleTreeNode(self.classrooms[self.current_classroom], self.db_dict, self.ministry_recommendations, self.schedule_nodes))
             
+            print(len(self.schedule_nodes))
+
             if self.is_solution():
                 self.is_solved = True
                 lessons = []
@@ -212,20 +104,42 @@ class Lesson:
         return False
 
 
-class ScheduleTreeNode(Schedule):
-    def __init__(self, classroom: object):
+class ScheduleTreeNode():
+    def __init__(self, classroom: object, db_dict, ministry_recommendations, schedule_nodes):
         self.classroom = classroom
+        self.schedule_nodes = schedule_nodes
+        self.db_dict = db_dict
+        self.ministry_recommendations = ministry_recommendations
         self.has_no_solution = False
         self.partial_solution = False
         self.lessons_tree = []
-        for timeslot in self.timeslots:
-            self.lessons_tree.append(LessonTreeNode(timeslot))
+        for timeslot in self.db_dict['timeslots']:
+            self.lessons_tree.append(LessonTreeNode(timeslot, self.classroom, self.db_dict, self.ministry_recommendations, self.schedule_nodes, self.lessons_tree))
             self.lessons_tree[-1].generate_possible_lessons()
-        
+    
+    def get_lessons_list(self):
+        lessons = []
+        for node in self.schedule_nodes:
+            for lesson_node in node.lessons_tree:
+                if lesson_node.lesson is not None:
+                    lessons.append(lesson_node.lesson)
+        return lessons
+
+    def get_classroom_hours(self, classroom):
+        hours = {}
+        for row in self.db_dict['class_subjects']:
+            if row.class_id == classroom.id:
+                hours[self.db_dict['subjects'][row.subject_id - 1].navn] = 0
+
+        for lesson in self.get_lessons_list():
+            if lesson.classroom.id == classroom.id:
+                hours[lesson.subject.navn] += 1
+        return hours
 
     def meets_ministry_standards(self):
         hours = self.get_classroom_hours(self.classroom)
-        grade_requirements = self.ministry_recommendations["grade_requrements"]
+        grade_requirements = self.ministry_recommendations["grade_requirements"]
+
         for subject in hours:
             if grade_requirements[subject][2026 - self.classroom.start_year] > hours[subject]:
                 return False
@@ -233,33 +147,169 @@ class ScheduleTreeNode(Schedule):
     
 
     def generate_solution(self):
+        if self.partial_solution:
+            self.lessons_tree[-1].generate_possible_lessons()
+
         while not self.meets_ministry_standards():
             self.lessons_tree[-1].generate_possible_lessons()
             
             while self.lessons_tree[-1].has_no_lessons:
                 self.lessons_tree.pop()
-
+                
                 if len(self.lessons_tree) == 0:
                     self.has_no_solution = True
                     return
                 
                 self.lessons_tree[-1].generate_possible_lessons()
-            
-            if len(self.lessons_tree) < len(self.timeslots):
-                self.lessons_tree.append(LessonTreeNode(self.timeslots[len(self.lessons_tree)]))
+                
+            while len(self.lessons_tree) < len(self.db_dict['timeslots']):
+                self.lessons_tree.append(LessonTreeNode(self.db_dict['timeslots'][len(self.lessons_tree)], self.classroom, self.db_dict, self.ministry_recommendations, self.schedule_nodes, self.lessons_tree))
+                self.lessons_tree[-1].generate_possible_lessons()
 
         self.partial_solution = True
 
-class LessonTreeNode(ScheduleTreeNode):
-    def __init__(self, timeslot: object):
+class LessonTreeNode():
+    def __init__(self, timeslot: object, classroom, db_dict, ministry_recommendations, schedule_nodes, lessons_tree):
+        self.db_dict = db_dict
+        self.lessons_tree = lessons_tree
+        self.schedule_nodes = schedule_nodes
+        self.ministry_recommendations = ministry_recommendations
         self.timeslot = timeslot
+        self.classroom = classroom
         self.possible_lessons = []
         self.is_generated = False
+        self.has_no_lessons = False
         self.lesson = None
+
+    def get_lessons_list(self):
+        lessons = []
+        for node in self.schedule_nodes:
+            for lesson_node in node.lessons_tree:
+                if lesson_node.lesson is not None:
+                    lessons.append(lesson_node.lesson)
+        return lessons + [node.lesson for node in self.lessons_tree if node.lesson is not None]
+
+    def get_lessons_for_timeslot(self, timeslot):
+        return [lesson for lesson in self.get_lessons_list() if lesson.timeslot == timeslot]
+
+
+    def get_available_teachers(self, timeslot):
+        available_teachers = [teacher for teacher in self.db_dict['teachers'] if teacher.id not in [availability.teacher_id for availability in self.db_dict['teacher_availability'] if availability.timeslot_id == timeslot.id]]
+        lessons = self.get_lessons_for_timeslot(timeslot)
+        for lesson in lessons:
+            if lesson.teacher in available_teachers:
+                available_teachers.remove(lesson.teacher)
+        return available_teachers
+
+
+    def get_classroom_subjects(self, classroom):
+        return [self.db_dict['subjects'][class_subject.subject_id - 1] for class_subject in self.db_dict['class_subjects'] if class_subject.class_id == classroom.id]
+
+
+    def get_lessons_from_teacher_subject(self, teachers, subjects, classroom, timeslot):
+        # find matching teacher-subject pairs
+        teacher_subjects_matches = {}
+        for teacher in teachers:
+            teacher_subjects_matches[teacher] = [subject for subject in subjects if subject.id in [teacher_subject.subject_id for teacher_subject in self.db_dict['teacher_subjects'] if teacher_subject.teacher_id == teacher.id]]
+
+        # create lessons from matching teacher-subject pairs
+        available_lessons = []
+        for teacher, subjects in teacher_subjects_matches.items():
+            for subject in subjects:
+                available_lessons.append(Lesson(subject, teacher, classroom.room, classroom, timeslot))
+        
+        return available_lessons
+
+
+    def get_lessons_in_day_and_classroom(self, timeslot, classroom):
+        lessons_in_day_and_classroom = []
+        for lesson in self.get_lessons_list():
+            if lesson.timeslot.day_of_week == timeslot.day_of_week:
+                if lesson.classroom == classroom:
+                    lessons_in_day_and_classroom.append(lesson)
+        return lessons_in_day_and_classroom
+
+
+    def placement_constraints(self, lessons: list, timeslot: object, classroom: object):
+        # remove lessons that have already been scheduled in the same day
+        earlier_lessons = self.get_lessons_in_day_and_classroom(timeslot, classroom)
+        earlier_lesson_names = [earlier_lesson.subject.navn for earlier_lesson in earlier_lessons]
+
+        # to remove lessons after checking constraints
+        lessons_to_remove = []
+
+        # check constraints for each lesson
+        for lesson in lessons:
+            
+            count = earlier_lesson_names.count(lesson.subject.navn)
+
+            # if the subject is scheduled twice remove it from available lessons
+            if  count == 2 and lesson.subject.recommendations[2026 - classroom.start_year] <= 10:
+                lessons_to_remove.append(lesson)
+
+            # if the subject is scheduled once check if the lesson is adjecent to it otherwise remove it from available lessons
+            elif count == 1:
+                  other_lesson = [earlier_lesson for earlier_lesson in earlier_lessons if earlier_lesson.subject.navn == lesson.subject.navn][0]
+                  if other_lesson.timeslot.start_time != lesson.timeslot.end_time and other_lesson.timeslot.end_time != lesson.timeslot.start_time:
+                        lessons_to_remove.append(lesson)
+
+        # remove lessons that didn't pass the constraints
+        for lesson in lessons_to_remove:
+            lessons.remove(lesson)
+
+        return lessons
+
+
+    def get_classroom_hours(self, classroom):
+        hours = {}
+        for row in self.db_dict['class_subjects']:
+            if row.class_id == classroom.id:
+                hours[self.db_dict['subjects'][row.subject_id - 1].navn] = 0
+
+        for lesson in self.get_lessons_list():
+            if lesson.classroom.id == classroom.id:
+                hours[lesson.subject.navn] += 1
+        return hours
+
+
+    def follow_recommendations(self, lessons, classroom):
+        # get the curren amount of hours for each subject in the classroom
+        current_hours = self.get_classroom_hours(classroom)
+
+        to_remove = []
+
+        # follow recommendations for each lesson
+        for lesson in lessons:
+            # if the subject is scheduled more than the recommendation remove it from available lessons
+            if lesson.subject.recommendations[2026 - classroom.start_year] <= current_hours[lesson.subject.navn]:
+                to_remove.append(lesson)
+
+        for lesson in to_remove:
+            lessons.remove(lesson)
+
+        return lessons
+                
+
+    def get_available_lessons(self, timeslot, classroom):
+        # get available teachers and subjects for the given timeslot and classroom
+        available_teachers = self.get_available_teachers(timeslot)
+        available_subjects = self.get_classroom_subjects(classroom)
+        
+        # find matching teacher-subject pairs
+        available_lessons = self.get_lessons_from_teacher_subject(available_teachers, available_subjects, classroom, timeslot)
+        
+        # apply placement constraints
+        available_lessons = self.placement_constraints(available_lessons, timeslot, classroom)
+
+        # apply ministry recommendations
+        available_lessons = self.follow_recommendations(available_lessons, classroom)
+
+        return available_lessons
 
     def generate_possible_lessons(self):
         if not self.is_generated:
             self.possible_lessons = self.get_available_lessons(self.timeslot, self.classroom)
+            self.is_generated = True
 
             if len(self.possible_lessons) == 0:
                 self.has_no_lessons = True
@@ -277,9 +327,6 @@ class LessonTreeNode(ScheduleTreeNode):
             else:
                 self.lesson = self.possible_lessons[0]
                 self.possible_lessons.pop(0)
-
-        
-
 
 
 def main():
