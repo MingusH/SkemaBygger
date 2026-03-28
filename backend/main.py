@@ -6,6 +6,7 @@ from sqlalchemy.orm import joinedload, Session
 from sqlalchemy import and_, or_
 from datetime import datetime, date, time
 from typing import List, Optional, Dict
+from or_tools_solver import main as or_tools_main
 
 import models
 import schemas
@@ -701,15 +702,14 @@ def get_available_rooms(date: str, timeslot_id: int, db: Session = Depends(get_d
 def generate_schedule(db: Session = Depends(get_db)):
     """Generate and return schedule from schedule_solver"""
     try:
-        from schedule_solver import Schedule
-        
         # Create and solve schedule
-        schedule = Schedule(db)
-        schedule.solve()
+        lessons = or_tools_main()
+        classrooms = db.query(models.Classroom).all()
+        timeslots = db.query(models.TimeSlot).all()
         
         # Convert lessons to JSON-serializable format
         lessons_data = []
-        for lesson in schedule.lessons:
+        for lesson in lessons:
             # Handle room - it could be a string (room name) or a Room object
             room_data = None
             if lesson.room:
@@ -747,14 +747,14 @@ def generate_schedule(db: Session = Depends(get_db)):
             lessons_data.append(lesson_data)
         
         # Get classrooms and timeslots
-        classrooms_data = [{"id": c.id, "name": c.name} for c in schedule.classrooms]
+        classrooms_data = [{"id": c.id, "name": c.name} for c in classrooms]
         timeslots_data = [
             {
                 "id": t.id, 
                 "start_time": str(t.start_time), 
                 "end_time": str(t.end_time), 
                 "day_of_week": t.day_of_week
-            } for t in schedule.timeslots
+            } for t in timeslots
         ]
         
         return {

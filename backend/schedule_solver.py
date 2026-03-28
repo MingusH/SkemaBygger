@@ -113,6 +113,7 @@ class ScheduleTreeNode():
         self.has_no_solution = False
         self.partial_solution = False
         self.lessons_tree = []
+        self.tried_schedules = []
         for timeslot in self.db_dict['timeslots']:
             self.lessons_tree.append(LessonTreeNode(timeslot, self.classroom, self.db_dict, self.ministry_recommendations, self.schedule_nodes, self.lessons_tree))
             self.lessons_tree[-1].generate_possible_lessons()
@@ -161,7 +162,15 @@ class ScheduleTreeNode():
                     return
                 
                 self.lessons_tree[-1].generate_possible_lessons()
-                
+
+            if len(self.lessons_tree) > 5:
+                for i in range(5):
+                    self.lessons_tree.pop()
+                self.lessons_tree[-1].generate_possible_lessons()
+
+            if self.lessons_tree[-1].has_no_lessons:
+                continue
+
             while len(self.lessons_tree) < len(self.db_dict['timeslots']):
                 self.lessons_tree.append(LessonTreeNode(self.db_dict['timeslots'][len(self.lessons_tree)], self.classroom, self.db_dict, self.ministry_recommendations, self.schedule_nodes, self.lessons_tree))
                 self.lessons_tree[-1].generate_possible_lessons()
