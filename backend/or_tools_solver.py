@@ -52,10 +52,26 @@ def main():
                 for s in subjects:
                     schedule[(c.id, t.id, l.id, s.id)] = model.NewBoolVar(f"schedule_{c.id}_{t.id}_{l.id}_{s.id}")
 
-    # Constraint: Each timeslot can only have one lesson
+    # Constraint: Each timeslot can only have one lesson per classroom
     for t in timeslots:
         for c in classrooms:
             model.Add(sum(schedule[(c.id, t.id, l.id, s.id)] for l in teachers for s in subjects) <= 1)
+
+    timeslots_by_day = {}
+    for t in timeslots:
+        timeslots_by_day.setdefault(t.day_of_week, []).append(t)
+    
+    for d in timeslots_by_day:
+        timeslots_by_day[d].sort(key=lambda x: x.start_time)
+
+    # Constraint: Each lesson should be scheduled 2 times in a day at most unless 4 is required
+    slack = model.NewIntVar(0, 2, "slack")
+    for s in subjects:
+        for c in classrooms:
+            for d in timeslots_by_day:
+                model.Add(sum(schedule[(c.id, t.id, l.id, s.id)] for t in timeslots_by_day[d] for l in teachers) <= 2 + slack)
+    
+    model.Minimize(slack)
 
     # Constraint: Each timeslot can only have one lesson if it's not a break
     for t in timeslots:
@@ -82,6 +98,60 @@ def main():
     # Constraint: Teachers can only teach in their available timeslots
     for t_a in teacher_availability:
         model.Add(sum(schedule[(c.id, t.id, l.id, s.id)] for c in classrooms for s in subjects for t in timeslots if t.id == t_a.timeslot_id for l in teachers if l.id == t_a.teacher_id) == 0)
+
+    # Constraint: Teachers can only teach their subjects
+    for l in teachers:
+        for s in subjects:
+            if (l.id, s.id) not in teacher_subjects:
+                model.Add(sum(schedule[(c.id, t.id, l.id, s.id)] for c in classrooms for t in timeslots) == 0)
+                
+
+    # Constraint: Only one teacher per subject per classroom
+    teacher_assignments = {}
+    for c in classrooms:
+        for l in teachers:
+            for s in subjects:
+                teacher_assignments[(c.id, l.id, s.id)] = model.NewBoolVar(f"teaches_{c.id}_{l.id}_{s.id}")
+    
+    # Link: assignment is true if any lesson scheduled for this teacher/subject/classroom combo
+    for c in classrooms:
+        for l in teachers:
+            for s in subjects:
+                lessons_for_combo = [schedule[(c.id, t.id, l.id, s.id)] for t in timeslots]
+                model.AddMaxEquality(teacher_assignments[(c.id, l.id, s.id)], lessons_for_combo)
+    
+    # Constrain: at most one teacher per (classroom, subject)
+    for c in classrooms:
+        for s in subjects:
+            model.Add(sum(teacher_assignments[(c.id, l.id, s.id)] for l in teachers) <= 1)
+
+
+    # Constraint: Minimize gaps in classroom schedule
+    for c in classrooms:
+        for d, day_slots in timeslots_by_day.items():
+            days_lessons = []
+            for t in day_slots:
+                slot_vars = [schedule[(c.id, t.id, l.id, s.id)] for l in teachers for s in subjects]
+                slot_used = model.NewBoolVar(f"slot_used_{c.id}_{t.id}")
+                model.Add(sum(slot_vars) == slot_used)
+
+                for v in slot_vars:
+                    model.AddImplication(v, slot_used)
+
+                days_lessons.append(slot_used)
+
+            gaps = []
+
+            for i in range(1, len(days_lessons) - 1):
+                g = model.NewBoolVar(f"gap_{c.id}_{d}_{i}")
+
+                model.Add(days_lessons[i-1] + days_lessons[i+1] - days_lessons[i] <= 1 + (1 - g)*2)
+                model.Add(days_lessons[i-1] + days_lessons[i+1] - days_lessons[i] >= 2*g)
+
+                gaps.append(g)
+   
+            model.Minimize(sum(gaps))
+
 
     # Solve the model
     solver = cp_model.CpSolver()

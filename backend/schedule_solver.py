@@ -341,6 +341,7 @@ class LessonTreeNode():
 def main():
     db = SessionLocal()
     schedule = Schedule(db)
+    print(schedule.teacher_subjects)
     schedule.solve()
 
 if __name__ == "__main__":
