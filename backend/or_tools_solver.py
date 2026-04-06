@@ -131,14 +131,15 @@ def main():
         for d, day_slots in timeslots_by_day.items():
             days_lessons = []
             for t in day_slots:
-                slot_vars = [schedule[(c.id, t.id, l.id, s.id)] for l in teachers for s in subjects]
-                slot_used = model.NewBoolVar(f"slot_used_{c.id}_{t.id}")
-                model.Add(sum(slot_vars) == slot_used)
+                if not t.is_break:
+                    slot_vars = [schedule[(c.id, t.id, l.id, s.id)] for l in teachers for s in subjects]
+                    slot_used = model.NewBoolVar(f"slot_used_{c.id}_{t.id}")
+                    model.Add(sum(slot_vars) == slot_used)
 
-                for v in slot_vars:
-                    model.AddImplication(v, slot_used)
+                    for v in slot_vars:
+                        model.AddImplication(v, slot_used)
 
-                days_lessons.append(slot_used)
+                    days_lessons.append(slot_used)
 
             gaps = []
 
