@@ -14,6 +14,8 @@ services:
     #restart: unless-stopped
 
   backend:
+    networks:
+      - allstuff
     build: ./backend
     container_name: skema_backend
     environment:
@@ -31,6 +33,8 @@ services:
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
+    networks:
+      - allstuff
     build: ./frontend
     container_name: skema_frontend
     ports:
@@ -43,6 +47,15 @@ services:
     restart: unless-stopped
     environment:
       - REACT_APP_API_URL=http://localhost:8000
+      - VIRTUAL_HOST=skemabygger.dk
+      - VIRTUAL_PORT=3000
+      - LETSENCRYPT_HOST=skemabygger.dk
+      - LETSENCRYPT_EMAIL=mingusfhellstrom@gmail.com
 
 volumes:
   postgres_data:
+
+networks:
+  allstuff:
+    name: allstuff_default
+    external: true
