@@ -52,6 +52,23 @@ services:
       - LETSENCRYPT_HOST=skemabygger.dk
       - LETSENCRYPT_EMAIL=mingusfhellstrom@gmail.com
 
+  nginx:
+    image: nginx:alpine
+    container_name: skema_nginx
+    networks:
+      - allstuff
+    depends_on:
+      - frontend
+      - backend
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    environment:
+      - VIRTUAL_HOST=skemabygger.dk
+      - VIRTUAL_PORT=80
+      - LETSENCRYPT_HOST=skemabygger.dk
+      - LETSENCRYPT_EMAIL=mingusfhellstrom@gmail.com
+    restart: unless-stopped
+
 volumes:
   postgres_data:
 
