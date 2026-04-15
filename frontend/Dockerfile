@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:18-alpine as build
 
 WORKDIR /app
 
@@ -11,8 +11,21 @@ RUN npm install
 # Copy source code
 COPY . .
 
-# Expose port
-EXPOSE 3000
+# Build the application
+ENV REACT_APP_API_URL=/api
+RUN npm run build
 
-# Start the application
-CMD ["npm", "start"]
+# Production stage
+FROM nginx:alpine
+
+# Copy built app to nginx
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Copy nginx configuration for production
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose port
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
