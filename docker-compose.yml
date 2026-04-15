@@ -36,8 +36,6 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
-    ports:
-      - 80:80
     environment:
       - REACT_APP_API_URL=/api
       - VIRTUAL_HOST=skemabygger.dk
