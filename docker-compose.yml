@@ -23,8 +23,7 @@ services:
       SECRET_KEY: your-secret-key-change-in-production
       ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 30
-    ports:
-      - "8000:8000"
+    # No ports exposed - only accessible via nginx
     #depends_on:
       #- postgres
     volumes:
@@ -37,8 +36,7 @@ services:
       - allstuff
     build: ./frontend
     container_name: skema_frontend
-    ports:
-      - "3000:3000"
+    # No ports exposed - only accessible via nginx
     depends_on:
       - backend
     volumes:
@@ -46,17 +44,14 @@ services:
       - /app/node_modules
     restart: unless-stopped
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
-      - VIRTUAL_HOST=skemabygger.dk
-      - VIRTUAL_PORT=3000
-      - LETSENCRYPT_HOST=skemabygger.dk
-      - LETSENCRYPT_EMAIL=mingusfhellstrom@gmail.com
+      - REACT_APP_API_URL=/api  # Relative path through nginx
 
   nginx:
     image: nginx:alpine
     container_name: skema_nginx
     networks:
       - allstuff
+      - proxy  # Connect to jwilder/nginx-proxy network
     depends_on:
       - frontend
       - backend
@@ -75,4 +70,6 @@ volumes:
 networks:
   allstuff:
     name: allstuff_default
+    external: true
+  proxy:  # Network shared with jwilder/nginx-proxy
     external: true
